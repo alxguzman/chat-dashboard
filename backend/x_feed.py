@@ -1,7 +1,6 @@
 """
-x_feed.py — Polls X v2 API and forwards tweets to the browser.
-Tweets are emitted with type="tweet" so the frontend renders them
-in the left panel instead of the chat feed.
+x_feed.py — X posts via TwitterAPI.io (pay-as-you-go, free credits on signup)
+Skips silently if no API key is configured.
 """
 
 import asyncio
@@ -11,35 +10,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN", "")
-X_SEARCH_URL   = "https://api.twitter.com/2/tweets/search/recent"
-POLL_INTERVAL  = 15
+API_KEY       = os.getenv("TWITTER_API_IO_KEY", "").strip()
+SEARCH_URL    = "https://api.twitterapi.io/twitter/tweet/advanced_search"
+POLL_INTERVAL = 15
 
 
 async def poll_x(query: str, broadcast_fn):
-    headers  = {"Authorization": f"Bearer {X_BEARER_TOKEN}"}
-    seen_ids : set[str] = set()
-    since_id : str | None = None
+    if not API_KEY:
+        print("[X] No TWITTER_API_IO_KEY in .env — X feed disabled. Get a free key at twitterapi.io")
+        return  # Exit immediately, no error loop
 
-    print(f"[X] Polling for: {query}")
+    headers  = {"X-API-Key": API_KEY}
+    seen_ids: set[str] = set()
+    print(f"[X] Polling TwitterAPI.io for: {query}")
 
     while True:
         try:
-            params = {
-                "query":        query,
-                "max_results":  10,
-                "tweet.fields": "author_id,created_at,text,public_metrics",
-                "expansions":   "author_id",
-                "user.fields":  "username,verified"
-            }
-            if since_id:
-                params["since_id"] = since_id
-
             async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(X_SEARCH_URL, headers=headers, params=params)
+                r = await client.get(SEARCH_URL, headers=headers, params={
+                    "query":     query,
+                    "queryType": "Latest",
+                })
 
             if r.status_code == 401:
-                print("[X] Invalid Bearer Token. Check your .env file.")
+                print("[X] Invalid API key — check TWITTER_API_IO_KEY in .env")
                 await asyncio.sleep(60)
                 continue
             if r.status_code == 429:
@@ -51,33 +45,28 @@ async def poll_x(query: str, broadcast_fn):
                 await asyncio.sleep(30)
                 continue
 
-            data   = r.json()
-            tweets = data.get("data", [])
-            users  = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
-
-            for tweet in reversed(tweets):
-                tid = tweet["id"]
-                if tid in seen_ids:
+            for tweet in reversed(r.json().get("tweets", [])):
+                tid = tweet.get("id") or tweet.get("id_str", "")
+                if not tid or tid in seen_ids:
                     continue
                 seen_ids.add(tid)
-                since_id = tid
 
-                user     = users.get(tweet["author_id"], {})
-                username = user.get("username", "unknown")
-                verified = user.get("verified", False)
-                metrics  = tweet.get("public_metrics", {})
+                user     = tweet.get("author") or tweet.get("user") or {}
+                username = user.get("userName") or user.get("screen_name", "unknown")
+                verified = user.get("isBlueVerified") or user.get("verified", False)
+                text     = tweet.get("text") or tweet.get("full_text", "")
+                metrics  = tweet.get("public_metrics") or {}
 
                 await broadcast_fn({
-                    "type":      "tweet",        # ← tells frontend to show in left panel
-                    "platform":  "x",
-                    "username":  username,
-                    "text":      tweet["text"],
-                    "verified":  verified,
-                    "replies":   metrics.get("reply_count", 0),
-                    "retweets":  metrics.get("retweet_count", 0),
-                    "likes":     metrics.get("like_count", 0),
-                    "time_ago":  "just now",
-                    "color":     "#ffffff"
+                    "type":     "tweet",
+                    "platform": "x",
+                    "username": username,
+                    "text":     text,
+                    "verified": verified,
+                    "replies":  metrics.get("reply_count", 0),
+                    "retweets": metrics.get("retweet_count", 0),
+                    "likes":    metrics.get("like_count", 0),
+                    "time_ago": "just now",
                 })
 
         except Exception as e:
