@@ -880,3 +880,146 @@ img.emote {
 }
 
 #error-toast.show { opacity: 1; }
+
+/* ── Stream picker overlay ───────────────────────────────────── */
+#stream-picker {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+#stream-picker.visible { display: flex; }
+
+.picker-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.picker-logo {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.picker-label {
+  font-size: 14px;
+  color: var(--text2);
+}
+
+.picker-row {
+  display: flex;
+  gap: 8px;
+}
+
+.picker-row input {
+  padding: 9px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  width: 180px;
+  transition: border-color .15s;
+}
+
+.picker-row input:focus { border-color: var(--kick); }
+
+.picker-row button {
+  padding: 9px 18px;
+  background: var(--kick);
+  color: #000;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+
+.picker-row button:hover { opacity: 0.85; }
+
+.picker-hint {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+}
+
+/* Channel switch button */
+.channel-switch-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-cond) !important;
+  font-size: 12px !important;
+  color: var(--text2) !important;
+  padding: 0 8px !important;
+  width: auto !important;
+}
+
+.channel-switch-btn:hover { color: var(--kick) !important; }
+
+/* ── Stream loading state ────────────────────────────────────── */
+#stream-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--surface);
+}
+
+.loading-logo {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.15);
+  text-align: center;
+}
+
+.loading-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+#kick-player {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.stream-channel-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--kick);
+  background: var(--kick-dim);
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+}

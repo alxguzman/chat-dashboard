@@ -10,71 +10,61 @@
 </head>
 <body>
 
-  <!-- ── CRYPTO TICKER BAR ─────────────────────────────────── -->
   <div id="ticker-bar">
     <div class="ticker-track" id="ticker-track"></div>
   </div>
 
-  <!-- ── MAIN LAYOUT ───────────────────────────────────────── -->
   <div id="app">
 
-    <!-- LEFT: Live Tweets -->
+    <!-- LEFT: Live X Posts -->
     <aside id="tweets-panel">
       <div class="panel-header">
         <div class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.858L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.858L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
           Live Posts
         </div>
         <span class="live-badge">LIVE</span>
       </div>
       <div id="tweets-feed"></div>
-      <a class="view-more-btn" href="#" id="view-on-x">View on X ↗</a>
+      <a class="view-more-btn" href="https://x.com" target="_blank">View on X ↗</a>
     </aside>
 
-    <!-- CENTER: Stream + Controls -->
+    <!-- CENTER: Kick stream -->
     <main id="stream-panel">
       <div id="stream-container">
-        <div id="stream-placeholder">
-          <div class="stream-logo"><span class="logo-mb">Market<br>Bubble</span></div>
-          <div class="stream-info-overlay">
-            <div class="stream-names">
-              <div class="stream-host">HOST 1</div>
-              <div class="stream-host">HOST 2</div>
-            </div>
-            <div class="stream-title-bar">
-              <div class="stream-brand-mark">Market<br>Bubble</div>
-              <div class="stream-title-text" id="stream-title">MARKET BUBBLE LIVE</div>
-            </div>
-          </div>
+        <!-- Loading state shown until backend sends the channel -->
+        <div id="stream-loading">
+          <div class="loading-logo">Market<br>Bubble</div>
+          <p class="loading-text" id="loading-text">Connecting to stream…</p>
         </div>
+        <iframe
+          id="kick-player"
+          src=""
+          frameborder="0"
+          scrolling="no"
+          allowfullscreen="true"
+          allow="autoplay; fullscreen"
+        ></iframe>
       </div>
 
       <div id="stream-controls">
         <div class="controls-left">
-          <button class="ctrl-btn" title="Play/Pause">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-          <button class="ctrl-btn" title="Mute">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-          </button>
           <div class="live-dot-wrap">
             <span class="live-dot-red"></span>
             <span class="live-label">LIVE</span>
           </div>
+          <span class="stream-channel-chip" id="stream-channel-chip">—</span>
         </div>
         <div class="controls-mid">
-          <span id="viewer-count">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          <span id="viewer-count" title="">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             <span id="viewer-num">—</span>
           </span>
           <span id="stream-timer">00:00:00</span>
         </div>
         <div class="controls-right">
-          <button class="ctrl-btn" title="Settings">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
-          </button>
-          <button class="ctrl-btn" title="Fullscreen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          <button class="ctrl-btn" id="fullscreen-btn" title="Fullscreen">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
           </button>
         </div>
       </div>
@@ -83,7 +73,7 @@
         <div class="stream-avatar">MB</div>
         <div class="stream-meta-info">
           <div class="stream-channel-name">Market Bubble
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#5b9bd5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#5b9bd5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
           </div>
           <div class="stream-meta-title">NEVER FADE ANSEM | Banks & Ansem Live</div>
         </div>
@@ -98,59 +88,60 @@
       </div>
     </main>
 
-    <!-- RIGHT: Aggregated Chat -->
+    <!-- RIGHT: Chat -->
     <aside id="chat-panel">
       <div class="panel-header">
         <div class="panel-title">Live Chat</div>
-        <div id="ws-status" class="ws-dot disconnected" title="WebSocket status"></div>
+        <div id="ws-status" class="ws-dot disconnected"></div>
       </div>
 
-      <!-- Platform tabs -->
+      <!--
+        TWO-TAB SELECTOR: only Twitch and Kick channels from .env
+        Tabs are built dynamically in app.js once channels are known
+      -->
       <div id="chat-tabs">
         <button class="chat-tab active" data-platform="all">All</button>
         <button class="chat-tab twitch-tab" data-platform="twitch">Twitch</button>
-        <button class="chat-tab kick-tab"   data-platform="kick">Kick</button>
-        <button class="chat-tab x-tab"      data-platform="x">X</button>
+        <button class="chat-tab kick-tab" data-platform="kick">Kick</button>
+        <button class="chat-tab x-tab" data-platform="x">X</button>
       </div>
 
-      <!-- Messages -->
       <div id="chat-feed-wrap">
         <ul id="chat-feed"></ul>
       </div>
 
-      <!-- ── Auth bar ──────────────────────────────────────── -->
+      <!-- Auth -->
       <div id="auth-bar">
-        <!-- Logged out state -->
         <div id="login-prompt">
           <button id="twitch-login-btn" class="twitch-login-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
             Sign in with Twitch to chat
           </button>
         </div>
-
-        <!-- Logged in state (hidden until auth) -->
         <div id="logged-in-bar" class="hidden">
           <div id="user-info">
-            <img id="user-avatar" src="" alt="" />
+            <img id="user-avatar" src="" alt=""/>
             <span id="user-name"></span>
           </div>
           <button id="logout-btn" class="logout-btn" title="Sign out">✕</button>
         </div>
       </div>
 
-      <!-- Chat input (enabled after login) -->
+      <!-- Input -->
       <div id="chat-input-row">
-        <!-- Channel selector -->
-        <select id="chat-channel-select" disabled>
-          <option value="">Select channel…</option>
-        </select>
+        <!--
+          Channel selector — only shows Twitch channels from .env
+          (2 options max: the channels you configured)
+        -->
+        <select id="chat-channel-select" disabled></select>
         <input type="text" id="chat-input" placeholder="Sign in to chat…" disabled maxlength="500"/>
         <button class="send-btn" id="send-btn" disabled>Chat</button>
       </div>
-
     </aside>
+
   </div>
 
+  <div id="error-toast"></div>
   <script src="/static/app.js"></script>
 </body>
 </html>

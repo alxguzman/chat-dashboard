@@ -1,9 +1,8 @@
 """
-chat_sender.py — Sends messages to Twitch chat using an authenticated IRC connection.
+chat_sender.py — Sends messages to Twitch IRC using an authenticated connection.
 
-One authenticated sender is kept alive per logged-in user session.
-When the frontend sends { type: "send_chat", channel, text, session_id }
-over WebSocket, this module picks it up and writes it to Twitch IRC.
+Fix: properly waits for MOTD (376/004) before marking as ready to send,
+ensuring the connection is fully established before any PRIVMSG is attempted.
 """
 
 import asyncio
@@ -11,66 +10,91 @@ import websockets
 
 TWITCH_WS_URL = "wss://irc-ws.chat.twitch.tv:443"
 
-# Active sender connections: session_id → TwitchSender instance
 _senders: dict[str, "TwitchSender"] = {}
 
 
 class TwitchSender:
     def __init__(self, username: str, token: str):
-        self.username = username
-        self.token    = token
-        self._ws      = None
-        self._lock    = asyncio.Lock()
-        self._task    = None
+        self.username  = username.lower()
+        self.token     = token
+        self._ws       = None
+        self._ready    = asyncio.Event()   # set when IRC handshake completes
+        self._joined   : set[str] = set()
 
     async def connect(self):
-        """Open and maintain an authenticated IRC connection."""
+        """Maintain authenticated IRC connection, set _ready when handshake done."""
         while True:
+            self._ready.clear()
+            self._ws = None
             try:
                 async with websockets.connect(TWITCH_WS_URL) as ws:
                     self._ws = ws
+                    await ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
                     await ws.send(f"PASS oauth:{self.token}")
-                    await ws.send(f"NICK {self.username.lower()}")
-                    print(f"[Sender] Authenticated IRC connection for {self.username}")
+                    await ws.send(f"NICK {self.username}")
 
                     async for raw in ws:
+                        # Twitch sends 376 (End of MOTD) when login is complete
+                        if "376" in raw or "004" in raw:
+                            self._ready.set()
+                            print(f"[Sender] ✓ Ready to send as {self.username}")
+
                         if raw.startswith("PING"):
                             await ws.send("PONG :tmi.twitch.tv")
 
-            except Exception as e:
-                print(f"[Sender] IRC error for {self.username}: {e}. Reconnecting in 5s...")
-                self._ws = None
-                await asyncio.sleep(5)
+                        # Auth failure
+                        if "Login authentication failed" in raw:
+                            print(f"[Sender] ✗ Auth failed for {self.username}. Token may be expired.")
+                            self._ready.clear()
+                            break
 
-    async def join(self, channel: str):
-        """Join a channel so we can send messages to it."""
-        if self._ws:
-            await self._ws.send(f"JOIN #{channel.lower()}")
+            except Exception as e:
+                print(f"[Sender] Connection error for {self.username}: {e}")
+            finally:
+                self._ready.clear()
+                self._ws     = None
+                self._joined = set()
+
+            await asyncio.sleep(5)
 
     async def send(self, channel: str, text: str) -> bool:
-        """Send a chat message. Returns True on success."""
+        """Join channel if needed, then send message. Returns True on success."""
+        channel = channel.lower()
+
+        try:
+            # Wait up to 5s for connection to be ready
+            await asyncio.wait_for(self._ready.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            print(f"[Sender] Timed out waiting for IRC ready state")
+            return False
+
         if not self._ws:
             return False
+
         try:
-            await self._ws.send(f"PRIVMSG #{channel.lower()} :{text}")
+            # Join channel first if we haven't
+            if channel not in self._joined:
+                await self._ws.send(f"JOIN #{channel}")
+                self._joined.add(channel)
+                await asyncio.sleep(0.3)  # Small delay after join
+
+            await self._ws.send(f"PRIVMSG #{channel} :{text}")
             return True
+
         except Exception as e:
             print(f"[Sender] Send error: {e}")
             return False
 
 
-async def get_or_create_sender(session_id: str, username: str, token: str) -> TwitchSender:
-    """Return existing sender or create a new one for this session."""
+async def get_or_create_sender(session_id: str, username: str, token: str) -> "TwitchSender":
     if session_id not in _senders:
         sender = TwitchSender(username, token)
         _senders[session_id] = sender
-        # Start connection loop as background task
         asyncio.create_task(sender.connect())
-        await asyncio.sleep(1)  # Give it a moment to connect
+        # Give connection task a moment to start
+        await asyncio.sleep(0.1)
     return _senders[session_id]
 
 
 def remove_sender(session_id: str):
-    """Clean up sender when user logs out."""
-    if session_id in _senders:
-        del _senders[session_id]
+    _senders.pop(session_id, None)
