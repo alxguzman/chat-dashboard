@@ -1,10 +1,11 @@
 /**
  * app.js — Market Bubble Dashboard
  *
- * Platform icons (Twitch/Kick badges next to usernames):
- *   To change them, find PLATFORM_ICONS below and swap the SVG markup,
- *   or change the CSS classes .platform-icon.twitch / .platform-icon.kick
- *   in style.css to use a background-image instead of an inline SVG.
+ * Changes:
+ *  - Twitch stream embed instead of Kick
+ *  - Kick chat uses real user colors (not forced green)
+ *  - Badges shown next to usernames (both Twitch and Kick)
+ *  - Draggable divider: slide to expand/minimize chat vs stream
  */
 
 const WS_URL         = `ws${location.protocol === 'https:' ? 's' : ''}://${location.host}/ws`;
@@ -28,8 +29,6 @@ let streamStart = Date.now();
 let ws          = null;
 let sessionId   = localStorage.getItem('twitch_session') || null;
 let twitchUser  = JSON.parse(localStorage.getItem('twitch_user') || 'null');
-
-// Known twitch channels (populated from incoming chat messages)
 const twitchChannels = new Set();
 
 // ── DOM ───────────────────────────────────────────────────────
@@ -50,34 +49,27 @@ const chatInput      = document.getElementById('chat-input');
 const sendBtn        = document.getElementById('send-btn');
 const channelSelect  = document.getElementById('chat-channel-select');
 const errorToast     = document.getElementById('error-toast');
-const kickPlayer     = document.getElementById('kick-player');
 const streamLoading  = document.getElementById('stream-loading');
 const loadingText    = document.getElementById('loading-text');
 const streamChip     = document.getElementById('stream-channel-chip');
+const twitchPlayer   = document.getElementById('twitch-player');
 
-// ── Kick stream embed ─────────────────────────────────────────
-// The backend sends a "kick_channel" message on startup with the
-// channel name from KICK_CHANNELS in .env. No user input needed.
-function loadKickStream(channel) {
+// ── Twitch stream embed ───────────────────────────────────────
+function loadTwitchStream(channel) {
   channel = channel.trim().toLowerCase();
   if (!channel) return;
 
-  console.log(`[Stream] Embedding Kick channel: ${channel}`);
+  console.log(`[Stream] Embedding Twitch channel: ${channel}`);
   streamChip.textContent = channel;
 
-  // Must be HTTPS for Kick embed to load
-  if (location.protocol !== 'https:') {
-    loadingText.textContent = `⚠ HTTPS required for Kick embed. Run generate_cert.py then open https://localhost:8000`;
-    return;
-  }
-
-  kickPlayer.src = `https://player.kick.com/${channel}?autoplay=true`;
-  kickPlayer.style.display = 'block';
+  const parent = location.hostname || 'localhost';
+  twitchPlayer.src = `https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true&muted=false`;
+  twitchPlayer.style.display = 'block';
   streamLoading.style.display = 'none';
 }
 
 document.getElementById('fullscreen-btn').addEventListener('click', () => {
-  if (kickPlayer.requestFullscreen) kickPlayer.requestFullscreen();
+  if (twitchPlayer.requestFullscreen) twitchPlayer.requestFullscreen();
 });
 
 // ── Crypto ticker ─────────────────────────────────────────────
@@ -124,7 +116,13 @@ function connectWS() {
   ws.onmessage = ({ data }) => {
     try {
       const msg = JSON.parse(data);
-      if      (msg.type === 'kick_channel')  loadKickStream(msg.channel);
+      if      (msg.type === 'twitch_channels') {
+        // Use first Twitch channel for the stream embed
+        if (msg.channels && msg.channels.length > 0) {
+          loadTwitchStream(msg.channels[0]);
+        }
+      }
+      else if (msg.type === 'kick_channel')  { /* kick channel noted, not used for embed */ }
       else if (msg.type === 'tweet')         addTweet(msg);
       else if (msg.type === 'viewer_count')  updateViewers(msg);
       else if (msg.type === 'chat_error')    showToast(msg.error, 'error');
@@ -149,14 +147,10 @@ function updateViewers({ total, twitch, kick }) {
 }
 
 // ── Platform icons ────────────────────────────────────────────
-// ✏️ TO CHANGE ICONS: edit the SVG strings here, or replace with
-//    <img src="/static/your-icon.png"> tags instead of SVG.
-//    The icons appear as small badges left of each chat message.
 const PLATFORM_ICONS = {
   twitch: `<svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
   </svg>`,
-  
   kick: `<svg viewBox="0 0 24 24" fill="currentColor">
     <text y="16" x="3" font-size="14" font-weight="900" font-family="Arial,sans-serif">K</text>
   </svg>`,
@@ -165,8 +159,20 @@ const PLATFORM_ICONS = {
   </svg>`,
 };
 
+// ── Badge rendering ───────────────────────────────────────────
+function renderBadges(badges) {
+  if (!badges || !badges.length) return '';
+  return badges.map(b => {
+    if (b.img_url) {
+      return `<img class="badge-img" src="${esc(b.img_url)}" alt="${esc(b.title)}" title="${esc(b.title)}">`;
+    }
+    // Fallback to emoji span
+    return `<span class="badge-emoji" title="${esc(b.title)}">${b.emoji || '🏷'}</span>`;
+  }).join('');
+}
+
 // ── Chat messages ─────────────────────────────────────────────
-function addChatMsg({ platform, channel, username, text, has_emotes, color, self_sent }) {
+function addChatMsg({ platform, channel, username, text, has_emotes, color, badges, self_sent }) {
   // Auto-populate the Twitch channel send dropdown
   if (platform === 'twitch' && channel && !twitchChannels.has(channel)) {
     twitchChannels.add(channel);
@@ -174,21 +180,21 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, self
     opt.value = channel;
     opt.textContent = '#' + channel;
     channelSelect.appendChild(opt);
-    if (twitchChannels.size === 1) {
-      channelSelect.value = channel;
-    }
+    if (twitchChannels.size === 1) channelSelect.value = channel;
   }
 
   const li = document.createElement('li');
   li.className = `chat-msg ${platform}${self_sent ? ' self-sent' : ''}`;
   if (activeTab !== 'all' && activeTab !== platform) li.classList.add('hidden');
 
-  const rendered = has_emotes ? text : esc(text);
+  const rendered    = has_emotes ? text : esc(text);
+  const badgeHTML   = renderBadges(badges);
+  const usernameColor = color || (platform === 'kick' ? '#53FC18' : '#9147FF');
 
   li.innerHTML = `
     <div class="platform-icon ${platform}">${PLATFORM_ICONS[platform] || ''}</div>
     <div class="chat-body">
-      <span class="chat-username" style="color:${color||''}">${esc(username)}</span><span class="chat-text">${rendered}</span>
+      <span class="chat-badges">${badgeHTML}</span><span class="chat-username" style="color:${usernameColor}">${esc(username)}</span><span class="chat-text">${rendered}</span>
     </div>`;
 
   chatFeed.prepend(li);
@@ -336,5 +342,117 @@ function showToast(msg, type = 'error') {
 function esc(s) {
   return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ══════════════════════════════════════════════════════════════
+// ── SLIDING DIVIDER (stream ↔ chat) ──────────────────────────
+// ══════════════════════════════════════════════════════════════
+const appEl        = document.getElementById('app');
+const streamPanel  = document.getElementById('stream-panel');
+const chatPanel    = document.getElementById('chat-panel');
+const divider      = document.getElementById('panel-divider');
+const snapBtns     = document.getElementById('snap-buttons');
+const snapStream   = document.getElementById('snap-stream');
+const snapEqual    = document.getElementById('snap-equal');
+const snapChat     = document.getElementById('snap-chat');
+
+// Left panel (tweets) stays fixed; only stream+chat columns flex
+let isDragging     = false;
+let dragStartX     = 0;
+let dragStartRight = 0; // px width of chat panel at drag start
+
+const LEFT_W       = 280; // matches CSS --left-w
+const MIN_STREAM_W = 200;
+const MIN_CHAT_W   = 220;
+
+function getTotalMiddleWidth() {
+  return appEl.offsetWidth - LEFT_W;
+}
+
+const DIVIDER_W = 8; // must match CSS 8px divider column
+
+function applyRightW(chatPx) {
+  const total       = getTotalMiddleWidth();
+  // total includes the divider column width; stream+chat share the rest
+  const available   = total - DIVIDER_W;
+  const clampedChat = Math.max(MIN_CHAT_W, Math.min(chatPx, available - MIN_STREAM_W));
+  // Always keep: left / stream(1fr) / divider(8px) / chat(px)
+  appEl.style.gridTemplateColumns = `${LEFT_W}px 1fr ${DIVIDER_W}px ${clampedChat}px`;
+}
+
+// Snap presets
+snapStream.addEventListener('click', () => {
+  applyRightW(MIN_CHAT_W);
+  setActiveSnap(snapStream);
+});
+snapEqual.addEventListener('click', () => {
+  const available = getTotalMiddleWidth() - DIVIDER_W;
+  applyRightW(available / 2);
+  setActiveSnap(snapEqual);
+});
+snapChat.addEventListener('click', () => {
+  const available = getTotalMiddleWidth() - DIVIDER_W;
+  applyRightW(available - MIN_STREAM_W);
+  setActiveSnap(snapChat);
+});
+
+function setActiveSnap(btn) {
+  [snapStream, snapEqual, snapChat].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Drag logic
+divider.addEventListener('mousedown', e => {
+  isDragging     = true;
+  dragStartX     = e.clientX;
+  dragStartRight = chatPanel.offsetWidth;
+  divider.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  // Prevent iframe capturing events during drag
+  twitchPlayer.style.pointerEvents = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = dragStartX - e.clientX; // drag left = chat grows
+  applyRightW(dragStartRight + dx);
+});
+
+document.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  divider.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  twitchPlayer.style.pointerEvents = '';
+});
+
+// Touch support
+divider.addEventListener('touchstart', e => {
+  isDragging     = true;
+  dragStartX     = e.touches[0].clientX;
+  dragStartRight = chatPanel.offsetWidth;
+  twitchPlayer.style.pointerEvents = 'none';
+  e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const dx = dragStartX - e.touches[0].clientX;
+  applyRightW(dragStartRight + dx);
+}, { passive: false });
+
+document.addEventListener('touchend', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  twitchPlayer.style.pointerEvents = '';
+});
+
+// ── Double-click divider to reset ────────────────────────────
+divider.addEventListener('dblclick', () => {
+  appEl.style.gridTemplateColumns = '';
+  setActiveSnap(snapEqual);
+});
 
 updateAuthUI();

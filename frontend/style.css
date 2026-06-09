@@ -125,7 +125,7 @@ html, body {
 /* ── APP LAYOUT ─────────────────────────────────────────────── */
 #app {
   display: grid;
-  grid-template-columns: var(--left-w) 1fr var(--right-w);
+  grid-template-columns: var(--left-w) 1fr 8px var(--right-w);
   height: calc(100vh - var(--ticker-h));
   overflow: hidden;
 }
@@ -740,6 +740,7 @@ html, body {
 }
 @media (max-width: 860px) {
   #tweets-panel { display: none; }
+  #panel-divider { display: none; }
   #app { grid-template-columns: 1fr var(--right-w); }
 }
 @media (max-width: 620px) {
@@ -1022,4 +1023,138 @@ img.emote {
   padding: 2px 8px;
   border-radius: 10px;
   letter-spacing: 0.03em;
+}
+/* ══════════════════════════════════════════════════════════════
+   ADDITIONS — Twitch embed, badges, sliding divider
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Replace kick-player with twitch-player ──────────────────── */
+#twitch-player {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ── Badge images & emoji fallbacks ─────────────────────────── */
+.chat-badges {
+  display: inline;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+.badge-img {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 2px;
+  border-radius: 2px;
+  image-rendering: auto;
+  flex-shrink: 0;
+}
+
+.badge-emoji {
+  display: inline-block;
+  font-size: 11px;
+  vertical-align: middle;
+  margin-right: 2px;
+  line-height: 1;
+  cursor: default;
+}
+
+/* ── Divider column ──────────────────────────────────────────── */
+#panel-divider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  z-index: 20;
+  transition: background 0.15s;
+  gap: 6px;
+  overflow: visible;
+}
+
+#panel-divider:hover,
+#panel-divider.dragging {
+  background: var(--surface2);
+  border-color: var(--border2);
+}
+
+.divider-handle {
+  width: 4px;
+  height: 36px;
+  border-radius: 2px;
+  background: var(--border2);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+#panel-divider:hover .divider-handle,
+#panel-divider.dragging .divider-handle {
+  background: var(--twitch);
+}
+
+/* Snap preset buttons — appear on hover of divider */
+#snap-buttons {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#panel-divider:hover #snap-buttons {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#snap-buttons button {
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  background: var(--surface3);
+  color: var(--text2);
+  font-size: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+#snap-buttons button:hover,
+#snap-buttons button.active {
+  background: var(--twitch);
+  color: white;
+  border-color: var(--twitch);
+}
+
+/* Ensure chat-panel is not fixed-width when divider overrides */
+#chat-panel {
+  min-width: var(--right-w);
+}
+
+/* ── Responsive: hide divider + collapse on small screens ──── */
+@media (max-width: 860px) {
+  #panel-divider { display: none; }
+  #app { grid-template-columns: 1fr var(--right-w) !important; }
+}
+@media (max-width: 620px) {
+  #app { grid-template-columns: 1fr !important; }
 }

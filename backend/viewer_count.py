@@ -82,8 +82,15 @@ async def get_kick_viewers(channels: list[str]) -> int:
     return total
 
 
-async def poll_viewer_counts(twitch_channels: list[str], kick_channels: list[str], broadcast_fn):
-    """Polls combined viewer count every 30s and broadcasts to frontend."""
+async def poll_viewer_counts(twitch_channels: list[str], kick_channels: list[str], broadcast_fn, injected_token: str = ""):
+    """Polls combined viewer count every 30s and broadcasts to frontend.
+    
+    Pass injected_token if you already fetched an app token at startup,
+    so we don't invalidate it by requesting a second one.
+    """
+    global _twitch_token
+    if injected_token:
+        _twitch_token = injected_token  # seed the cache with the already-fetched token
     while True:
         tw = await get_twitch_viewers(twitch_channels)
         kk = await get_kick_viewers(kick_channels)

@@ -29,16 +29,16 @@
       <a class="view-more-btn" href="https://x.com" target="_blank">View on X ↗</a>
     </aside>
 
-    <!-- CENTER: Kick stream -->
+    <!-- CENTER: Twitch stream -->
     <main id="stream-panel">
       <div id="stream-container">
-        <!-- Loading state shown until backend sends the channel -->
         <div id="stream-loading">
           <div class="loading-logo">Market<br>Bubble</div>
           <p class="loading-text" id="loading-text">Connecting to stream…</p>
         </div>
+        <!-- Twitch embed (replaces Kick) -->
         <iframe
-          id="kick-player"
+          id="twitch-player"
           src=""
           frameborder="0"
           scrolling="no"
@@ -75,7 +75,7 @@
           <div class="stream-channel-name">Market Bubble
             <svg width="13" height="13" viewBox="0 0 24 24" fill="#5b9bd5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
           </div>
-          <div class="stream-meta-title">NEVER FADE ANSEM | Banks & Ansem Live</div>
+          <div class="stream-meta-title">NEVER FADE ANSEM | Banks &amp; Ansem Live</div>
         </div>
         <div class="stream-tags">
           <span class="tag">Finance</span>
@@ -88,6 +88,16 @@
       </div>
     </main>
 
+    <!-- DIVIDER — drag to resize stream vs chat -->
+    <div id="panel-divider" title="Drag to resize · Double-click to reset">
+      <div class="divider-handle"></div>
+      <div id="snap-buttons">
+        <button id="snap-stream" title="Maximize stream">◀</button>
+        <button id="snap-equal"  title="Split equally" class="active">⬛</button>
+        <button id="snap-chat"   title="Maximize chat">▶</button>
+      </div>
+    </div>
+
     <!-- RIGHT: Chat -->
     <aside id="chat-panel">
       <div class="panel-header">
@@ -95,10 +105,6 @@
         <div id="ws-status" class="ws-dot disconnected"></div>
       </div>
 
-      <!--
-        TWO-TAB SELECTOR: only Twitch and Kick channels from .env
-        Tabs are built dynamically in app.js once channels are known
-      -->
       <div id="chat-tabs">
         <button class="chat-tab active" data-platform="all">All</button>
         <button class="chat-tab twitch-tab" data-platform="twitch">Twitch</button>
@@ -129,10 +135,6 @@
 
       <!-- Input -->
       <div id="chat-input-row">
-        <!--
-          Channel selector — only shows Twitch channels from .env
-          (2 options max: the channels you configured)
-        -->
         <select id="chat-channel-select" disabled></select>
         <input type="text" id="chat-input" placeholder="Sign in to chat…" disabled maxlength="500"/>
         <button class="send-btn" id="send-btn" disabled>Chat</button>

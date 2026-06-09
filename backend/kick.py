@@ -1,7 +1,7 @@
 """
 kick.py — Kick chat with emote rendering + curl_cffi Cloudflare bypass.
-Also broadcasts the active Kick channel name so the frontend can
-pre-populate the stream embed without user input.
+Sends kick_channel to frontend for reference; stream embed now uses Twitch.
+Kick badges: sub / mod / founder parsed from sender.identity.
 """
 
 import asyncio
@@ -14,6 +14,41 @@ KICK_CHANNEL_URL = "https://kick.com/api/v2/channels/{channel}"
 KICK_WS_URL      = "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false"
 KICK_EMOTE_CDN   = "https://files.kick.com/emotes/{id}/fullsize"
 INLINE_EMOTE_RE  = re.compile(r'\[emote:(\d+):([^\]]+)\]')
+
+# Kick badge metadata
+KICK_BADGE_MAP = {
+    "broadcaster": {"title": "Broadcaster", "emoji": "🔴"},
+    "moderator":   {"title": "Moderator",   "emoji": "🗡"},
+    "subscriber":  {"title": "Subscriber",  "emoji": "⭐"},
+    "og":          {"title": "OG",          "emoji": "👑"},
+    "vip":         {"title": "VIP",         "emoji": "💎"},
+    "founder":     {"title": "Founder",     "emoji": "🏅"},
+    "verified":    {"title": "Verified",    "emoji": "✓"},
+    "staff":       {"title": "Staff",       "emoji": "🔧"},
+    "gifter":      {"title": "Gifter",      "emoji": "🎁"},
+}
+
+
+def parse_kick_badges(sender: dict) -> list[dict]:
+    """Extract badges from Kick sender object."""
+    badges = []
+    identity = sender.get("identity", {}) or {}
+
+    # badges field is a list of {type, text, count} objects
+    for b in (identity.get("badges") or []):
+        badge_type = b.get("type", "")
+        meta = KICK_BADGE_MAP.get(badge_type, {
+            "title": badge_type.replace("_", " ").title(),
+            "emoji": "🏷",
+        })
+        badges.append({
+            "set_id":  badge_type,
+            "version": str(b.get("count", "")),
+            "title":   meta["title"],
+            "emoji":   meta["emoji"],
+        })
+
+    return badges
 
 
 def render_emotes(text: str, emotes: list) -> tuple[str, bool]:
@@ -71,7 +106,7 @@ async def get_chatroom_id(channel: str) -> int | None:
 async def connect_kick(channel: str, broadcast_fn):
     channel = channel.lower().strip()
 
-    # Tell the frontend which channel to embed as soon as we start
+    # Tell the frontend which Kick channel we're monitoring (for reference)
     await broadcast_fn({
         "type":    "kick_channel",
         "channel": channel,
@@ -105,6 +140,12 @@ async def connect_kick(channel: str, broadcast_fn):
                             raw_text = inner.get("content", "")
                             emotes   = inner.get("emotes", [])
                             text_html, has_emotes = render_emotes(raw_text, emotes)
+                            badges   = parse_kick_badges(sender)
+
+                            # Use identity color if available, fallback to Kick green
+                            identity = sender.get("identity", {}) or {}
+                            color    = identity.get("color") or "#53FC18"
+
                             if raw_text:
                                 await broadcast_fn({
                                     "platform":   "kick",
@@ -112,7 +153,8 @@ async def connect_kick(channel: str, broadcast_fn):
                                     "username":   username,
                                     "text":       text_html,
                                     "has_emotes": has_emotes,
-                                    "color":      "#53FC18",
+                                    "color":      color,
+                                    "badges":     badges,
                                 })
                     except (json.JSONDecodeError, KeyError, TypeError):
                         pass

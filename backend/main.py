@@ -37,17 +37,46 @@ async def lifespan(app: FastAPI):
     twitch_channels = [c.strip() for c in os.getenv("TWITCH_CHANNELS", "").split(",") if c.strip()]
     kick_channels   = [c.strip() for c in os.getenv("KICK_CHANNELS",   "").split(",") if c.strip()]
     x_query         = os.getenv("X_SEARCH_QUERY", "")
+    client_id       = os.getenv("TWITCH_CLIENT_ID", "")
+    client_secret   = os.getenv("TWITCH_CLIENT_SECRET", "")
+
+    # Get an app token for badge fetching
+    app_token = ""
+    if client_id and client_secret:
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post("https://id.twitch.tv/oauth2/token", params={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "grant_type": "client_credentials"
+                })
+                app_token = r.json().get("access_token", "")
+        except Exception as e:
+            print(f"[Main] Could not get app token: {e}")
+
     tasks = []
     for ch in twitch_channels:
-        tasks.append(asyncio.create_task(connect_twitch(ch, broadcast)))
+        tasks.append(asyncio.create_task(connect_twitch(ch, broadcast, client_id, app_token)))
     for ch in kick_channels:
         tasks.append(asyncio.create_task(connect_kick(ch, broadcast)))
     if x_query:
         tasks.append(asyncio.create_task(poll_x(x_query, broadcast)))
     if twitch_channels or kick_channels:
         tasks.append(asyncio.create_task(
-            poll_viewer_counts(twitch_channels, kick_channels, broadcast)
+            poll_viewer_counts(twitch_channels, kick_channels, broadcast, injected_token=app_token)
         ))
+
+    # Broadcast Twitch channels to frontend for stream embed
+    if twitch_channels:
+        async def send_twitch_channels():
+            await asyncio.sleep(0.5)
+            await broadcast({
+                "type":     "twitch_channels",
+                "channels": twitch_channels,
+            })
+        tasks.append(asyncio.create_task(send_twitch_channels()))
+
     yield
     for t in tasks:
         t.cancel()
@@ -89,7 +118,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     await broadcast({
                         "platform": "twitch", "channel": channel,
                         "username": session["username"], "text": text,
-                        "has_emotes": False, "color": "#FFD700", "self_sent": True,
+                        "has_emotes": False, "color": "#FFD700",
+                        "badges": [], "self_sent": True,
                     })
                 else:
                     await websocket.send_text(json.dumps({"type": "chat_error", "error": "Send failed."}))
@@ -104,7 +134,6 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
-    # Look for cert files in the backend directory
     backend_dir = Path(__file__).parent
     cert = backend_dir / "cert.pem"
     key  = backend_dir / "key.pem"
@@ -119,5 +148,4 @@ if __name__ == "__main__":
                     ssl_certfile=str(cert), ssl_keyfile=str(key))
     else:
         print("[Server] ✗ Cert files not found — run: python generate_cert.py")
-        print("[Server]   Then restart: python main.py")
         uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
