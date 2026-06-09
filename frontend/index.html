@@ -10,24 +10,84 @@
 </head>
 <body>
 
+  <!-- ── Site Header ───────────────────────────────────────────── -->
+  <header id="site-header">
+    <a class="header-logo" href="/" aria-label="Market Bubble">
+      <img class="logo-img" src="/static/market_bubble_logo.png" height="14", width="14", alt="Market Bubble" draggable="false"/>
+    </a>
+
+    <button id="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <!-- Moon: shown in dark mode -->
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" width="17" height="17">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+      <!-- Sun: shown in light mode -->
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+      </svg>
+    </button>
+  </header>
+
   <div id="ticker-bar">
     <div class="ticker-track" id="ticker-track"></div>
   </div>
 
   <div id="app">
 
-    <!-- LEFT: Live X Posts -->
+    <!-- LEFT: Multi-tab Panel (X Posts / Polymarket / Price Chart) -->
     <aside id="tweets-panel">
       <div class="panel-header">
-        <div class="panel-title">
+        <div class="panel-title" id="left-panel-title">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.858L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          Live Posts
+          <span id="left-panel-title-text">Live Posts</span>
         </div>
-        <span class="live-badge">LIVE</span>
+        <div class="ws-dot connected" id="left-status-dot"></div>
       </div>
-      <div id="tweets-feed"></div>
-      <a class="view-more-btn" href="https://x.com" target="_blank">View on X ↗</a>
+
+      <!-- Tabs -->
+      <div id="left-tabs">
+        <button class="left-tab active" data-left-tab="x">X Posts</button>
+        <button class="left-tab" data-left-tab="polymarket">Polymarket</button>
+        <button class="left-tab" data-left-tab="chart">Price Chart</button>
+      </div>
+
+      <!-- Pane: X Posts -->
+      <div id="left-pane-x" class="left-pane">
+        <div id="tweets-feed"></div>
+        <a class="view-more-btn" href="https://x.com" target="_blank">View on X ↗</a>
+      </div>
+
+      <!-- Pane: Polymarket -->
+      <div id="left-pane-polymarket" class="left-pane left-pane-hidden">
+        <div class="left-search-row">
+          <input type="text" id="poly-search" placeholder="Search prediction markets…" autocomplete="off"/>
+          <button id="poly-search-btn">Search</button>
+        </div>
+        <div id="poly-results" class="left-scroll-area"></div>
+      </div>
+
+      <!-- Pane: Price Chart -->
+      <div id="left-pane-chart" class="left-pane left-pane-hidden">
+        <div class="left-search-row">
+          <input type="text" id="chart-search" placeholder="BTC, ETH, AAPL, TSLA…" autocomplete="off"/>
+          <button id="chart-search-btn">Chart</button>
+        </div>
+        <div id="chart-container">
+          <div class="chart-placeholder">Enter a symbol above to load chart</div>
+        </div>
+      </div>
     </aside>
+
+    <!-- LEFT DIVIDER — drag to resize left panel vs stream -->
+    <div id="left-divider" title="Drag to resize · Double-click to reset">
+      <div class="divider-handle"></div>
+      <div id="left-snap-buttons">
+        <button id="left-snap-hide"    title="Collapse left panel">◀</button>
+        <button id="left-snap-default" title="Restore default" class="active">⬛</button>
+        <button id="left-snap-expand"  title="Expand left panel">▶</button>
+      </div>
+    </div>
 
     <!-- CENTER: Twitch stream -->
     <main id="stream-panel">
@@ -92,9 +152,9 @@
     <div id="panel-divider" title="Drag to resize · Double-click to reset">
       <div class="divider-handle"></div>
       <div id="snap-buttons">
-        <button id="snap-stream" title="Maximize stream">◀</button>
-        <button id="snap-equal"  title="Split equally" class="active">⬛</button>
-        <button id="snap-chat"   title="Maximize chat">▶</button>
+        <button id="snap-stream" title="Expand chat (~420px)">◀</button>
+        <button id="snap-equal"  title="Restore default" class="active">⬛</button>
+        <button id="snap-chat"   title="Collapse chat">▶</button>
       </div>
     </div>
 

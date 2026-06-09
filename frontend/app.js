@@ -528,7 +528,7 @@ function esc(s) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── SLIDING DIVIDER (stream ↔ chat) ──────────────────────────
+// ── SLIDING DIVIDERS (left panel ↔ stream ↔ chat) ────────────
 // ══════════════════════════════════════════════════════════════
 const appEl        = document.getElementById('app');
 const streamPanel  = document.getElementById('stream-panel');
@@ -539,52 +539,70 @@ const snapStream   = document.getElementById('snap-stream');
 const snapEqual    = document.getElementById('snap-equal');
 const snapChat     = document.getElementById('snap-chat');
 
-// Left panel (tweets) stays fixed; only stream+chat columns flex
-let isDragging     = false;
-let dragStartX     = 0;
-let dragStartRight = 0; // px width of chat panel at drag start
+const leftDivider      = document.getElementById('left-divider');
+const leftSnapHide     = document.getElementById('left-snap-hide');
+const leftSnapDefault  = document.getElementById('left-snap-default');
+const leftSnapExpand   = document.getElementById('left-snap-expand');
 
-const LEFT_W       = 280; // matches CSS --left-w
-const MIN_STREAM_W = 200;
-const MIN_CHAT_W   = 220;
+const DEFAULT_LEFT_W = 280;
+const MIN_LEFT_W     = 0;
+const MIN_STREAM_W   = 200;
+const MIN_CHAT_W     = 220;
+const DIVIDER_W      = 8; // both dividers are 8px
 
-function getTotalMiddleWidth() {
-  return appEl.offsetWidth - LEFT_W;
+let leftW = DEFAULT_LEFT_W; // current left panel width (changes on drag / snap)
+
+// stream+chat space = total - leftW - 2 dividers
+function getMiddleAvailable() {
+  return appEl.offsetWidth - leftW - 2 * DIVIDER_W;
 }
 
-const DIVIDER_W = 8; // must match CSS 8px divider column
+function applyColumns(newLeftW, chatPx, allowChatZero = false) {
+  const totalAvail  = appEl.offsetWidth - 2 * DIVIDER_W;
+  leftW             = Math.max(MIN_LEFT_W, Math.min(newLeftW, totalAvail - MIN_STREAM_W - MIN_CHAT_W));
+  const midAvail    = appEl.offsetWidth - leftW - 2 * DIVIDER_W;
+  const minChat     = allowChatZero ? 0 : MIN_CHAT_W;
+  const clampedChat = Math.max(minChat, Math.min(chatPx, midAvail - MIN_STREAM_W));
+  // Grid: leftW | 8px | 1fr(stream) | 8px | chatW
+  appEl.style.gridTemplateColumns = `${leftW}px ${DIVIDER_W}px 1fr ${DIVIDER_W}px ${clampedChat}px`;
+}
 
 function applyRightW(chatPx) {
-  const total       = getTotalMiddleWidth();
-  // total includes the divider column width; stream+chat share the rest
-  const available   = total - DIVIDER_W;
-  const clampedChat = Math.max(MIN_CHAT_W, Math.min(chatPx, available - MIN_STREAM_W));
-  // Always keep: left / stream(1fr) / divider(8px) / chat(px)
-  appEl.style.gridTemplateColumns = `${LEFT_W}px 1fr ${DIVIDER_W}px ${clampedChat}px`;
+  applyColumns(leftW, chatPx);
 }
 
-// Snap presets
+function applyLeftW(newLeftW) {
+  const currentChat = chatPanel.offsetWidth || MIN_CHAT_W;
+  applyColumns(newLeftW, currentChat);
+}
+
+// ── Right divider snap presets ────────────────────────────────
+// ◀ = expand chat to ~420px  ⬛ = restore equal split  ▶ = collapse chat
+const DEFAULT_CHAT_EXPAND = DEFAULT_LEFT_W * 1.5; // ~420px, mirrors left expand
+
 snapStream.addEventListener('click', () => {
-  applyRightW(MIN_CHAT_W);
-  setActiveSnap(snapStream);
+  applyColumns(leftW, DEFAULT_CHAT_EXPAND);
+  setActiveRightSnap(snapStream);
 });
 snapEqual.addEventListener('click', () => {
-  const available = getTotalMiddleWidth() - DIVIDER_W;
-  applyRightW(available / 2);
-  setActiveSnap(snapEqual);
+  applyColumns(leftW, getMiddleAvailable() / 2);
+  setActiveRightSnap(snapEqual);
 });
 snapChat.addEventListener('click', () => {
-  const available = getTotalMiddleWidth() - DIVIDER_W;
-  applyRightW(available - MIN_STREAM_W);
-  setActiveSnap(snapChat);
+  applyColumns(leftW, 0, true); // collapse to 0
+  setActiveRightSnap(snapChat);
 });
 
-function setActiveSnap(btn) {
+function setActiveRightSnap(btn) {
   [snapStream, snapEqual, snapChat].forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
 
-// Drag logic
+// ── Right divider drag ────────────────────────────────────────
+let isDragging     = false;
+let dragStartX     = 0;
+let dragStartRight = 0;
+
 divider.addEventListener('mousedown', e => {
   isDragging     = true;
   dragStartX     = e.clientX;
@@ -592,27 +610,38 @@ divider.addEventListener('mousedown', e => {
   divider.classList.add('dragging');
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
-  // Prevent iframe capturing events during drag
   twitchPlayer.style.pointerEvents = 'none';
   e.preventDefault();
 });
 
 document.addEventListener('mousemove', e => {
-  if (!isDragging) return;
-  const dx = dragStartX - e.clientX; // drag left = chat grows
-  applyRightW(dragStartRight + dx);
+  if (isDragging) {
+    const dx = dragStartX - e.clientX;
+    applyRightW(dragStartRight + dx);
+  }
+  if (isLeftDragging) {
+    const dx = e.clientX - leftDragStartX;
+    applyLeftW(leftDragStartLeft + dx);
+  }
 });
 
 document.addEventListener('mouseup', () => {
-  if (!isDragging) return;
-  isDragging = false;
-  divider.classList.remove('dragging');
-  document.body.style.cursor = '';
-  document.body.style.userSelect = '';
-  twitchPlayer.style.pointerEvents = '';
+  if (isDragging) {
+    isDragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    twitchPlayer.style.pointerEvents = '';
+  }
+  if (isLeftDragging) {
+    isLeftDragging = false;
+    leftDivider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    twitchPlayer.style.pointerEvents = '';
+  }
 });
 
-// Touch support
 divider.addEventListener('touchstart', e => {
   isDragging     = true;
   dragStartX     = e.touches[0].clientX;
@@ -622,21 +651,263 @@ divider.addEventListener('touchstart', e => {
 }, { passive: false });
 
 document.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  const dx = dragStartX - e.touches[0].clientX;
-  applyRightW(dragStartRight + dx);
+  if (isDragging) {
+    applyRightW(dragStartRight + (dragStartX - e.touches[0].clientX));
+  }
+  if (isLeftDragging) {
+    applyLeftW(leftDragStartLeft + (e.touches[0].clientX - leftDragStartX));
+  }
 }, { passive: false });
 
 document.addEventListener('touchend', () => {
-  if (!isDragging) return;
-  isDragging = false;
+  isDragging     = false;
+  isLeftDragging = false;
   twitchPlayer.style.pointerEvents = '';
 });
 
-// ── Double-click divider to reset ────────────────────────────
 divider.addEventListener('dblclick', () => {
   appEl.style.gridTemplateColumns = '';
-  setActiveSnap(snapEqual);
+  leftW = DEFAULT_LEFT_W;
+  setActiveRightSnap(snapEqual);
 });
 
+// ── Left divider drag ─────────────────────────────────────────
+let isLeftDragging  = false;
+let leftDragStartX  = 0;
+let leftDragStartLeft = 0;
+
+leftDivider.addEventListener('mousedown', e => {
+  isLeftDragging    = true;
+  leftDragStartX    = e.clientX;
+  leftDragStartLeft = leftW;
+  leftDivider.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  twitchPlayer.style.pointerEvents = 'none';
+  e.preventDefault();
+});
+
+leftDivider.addEventListener('touchstart', e => {
+  isLeftDragging    = true;
+  leftDragStartX    = e.touches[0].clientX;
+  leftDragStartLeft = leftW;
+  twitchPlayer.style.pointerEvents = 'none';
+  e.preventDefault();
+}, { passive: false });
+
+leftDivider.addEventListener('dblclick', () => {
+  applyLeftW(DEFAULT_LEFT_W);
+  setActiveLeftSnap(leftSnapDefault);
+});
+
+// ── Left divider snap presets ─────────────────────────────────
+leftSnapHide.addEventListener('click', () => {
+  applyLeftW(MIN_LEFT_W);
+  setActiveLeftSnap(leftSnapHide);
+});
+leftSnapDefault.addEventListener('click', () => {
+  applyLeftW(DEFAULT_LEFT_W);
+  setActiveLeftSnap(leftSnapDefault);
+});
+leftSnapExpand.addEventListener('click', () => {
+  applyLeftW(DEFAULT_LEFT_W * 1.5); // ~420px
+  setActiveLeftSnap(leftSnapExpand);
+});
+
+function setActiveLeftSnap(btn) {
+  [leftSnapHide, leftSnapDefault, leftSnapExpand].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
 updateAuthUI();
+
+// ══════════════════════════════════════════════════════════════
+// ── LEFT PANEL TABS ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+const leftTabBtns  = document.querySelectorAll('.left-tab');
+const leftPaneMap  = {
+  x:          document.getElementById('left-pane-x'),
+  polymarket: document.getElementById('left-pane-polymarket'),
+  chart:      document.getElementById('left-pane-chart'),
+};
+
+const LEFT_TITLES = {
+  x:          { icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.858L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`, text: 'Live Posts'  },
+  polymarket: { icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3zm0 8h18v2H3zm0 8h18v2H3z"/></svg>`,                                              text: 'Polymarket'   },
+  chart:      { icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>`,                  text: 'Price Chart'  },
+};
+
+leftTabBtns.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.leftTab;
+    leftTabBtns.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    Object.values(leftPaneMap).forEach(p => p.classList.add('left-pane-hidden'));
+    leftPaneMap[target].classList.remove('left-pane-hidden');
+
+    // Update panel header title
+    const cfg = LEFT_TITLES[target];
+    document.getElementById('left-panel-title').innerHTML =
+      `${cfg.icon}<span id="left-panel-title-text">${cfg.text}</span>`;
+
+    // Lazy-load Polymarket on first open
+    if (target === 'polymarket' && !polyAllMarkets.length) {
+      loadPolymarkets();
+    }
+  });
+});
+
+// ── Polymarket (Gamma API — client-side search) ───────────────
+// The Gamma API ignores text query params; we fetch a large batch up front
+// and filter locally so search actually works.
+const polySearchInput = document.getElementById('poly-search');
+const polySearchBtn   = document.getElementById('poly-search-btn');
+const polyResults     = document.getElementById('poly-results');
+let polyAllMarkets    = [];  // cached after first load
+
+async function loadPolymarkets() {
+  polyResults.innerHTML = '<div class="left-loading">Loading markets…</div>';
+  try {
+    // Fetch two pages in parallel for broader coverage
+    const base = 'https://gamma-api.polymarket.com/markets?active=true&limit=100';
+    const [r1, r2] = await Promise.all([
+      fetch(`${base}&offset=0&order=volume&ascending=false`),
+      fetch(`${base}&offset=100&order=volume&ascending=false`),
+    ]);
+    const [p1, p2] = await Promise.all([r1.json(), r2.json()]);
+    polyAllMarkets = [...(Array.isArray(p1) ? p1 : []), ...(Array.isArray(p2) ? p2 : [])];
+    renderPolyResults(polyAllMarkets.slice(0, 25));
+  } catch {
+    polyResults.innerHTML = '<div class="left-empty">Could not load markets — check your connection.</div>';
+  }
+}
+
+function searchPolymarket(query) {
+  if (!polyAllMarkets.length) {
+    loadPolymarkets();
+    return;
+  }
+  if (!query) {
+    renderPolyResults(polyAllMarkets.slice(0, 25));
+    return;
+  }
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits  = polyAllMarkets.filter(m => {
+    const hay = (m.question || m.title || '').toLowerCase();
+    return terms.every(t => hay.includes(t));
+  });
+  renderPolyResults(hits.slice(0, 25));
+  if (!hits.length) {
+    polyResults.innerHTML = `<div class="left-empty">No markets matched "${esc(query)}".<br><span style="font-size:11px;opacity:.7">Try a broader term.</span></div>`;
+  }
+}
+
+function renderPolyResults(markets) {
+  if (!markets.length) {
+    polyResults.innerHTML = '<div class="left-empty">No markets found.</div>';
+    return;
+  }
+  polyResults.innerHTML = '';
+  markets.forEach(m => {
+    const card = document.createElement('a');
+    card.className = 'poly-card';
+    card.href      = `https://polymarket.com/event/${m.slug}`;
+    card.target    = '_blank';
+    card.rel       = 'noopener noreferrer';
+
+    let yesPrice = 0.5;
+    if (m.outcomePrices) {
+      try {
+        const prices = typeof m.outcomePrices === 'string'
+          ? JSON.parse(m.outcomePrices) : m.outcomePrices;
+        yesPrice = parseFloat(prices[0]) || 0.5;
+      } catch {}
+    }
+    const yesPct = Math.round(yesPrice * 100);
+    const noPct  = 100 - yesPct;
+    const vol    = m.volume  ? `$${(parseFloat(m.volume)/1000).toFixed(1)}K vol` : '';
+    const end    = m.endDate ? new Date(m.endDate).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '';
+
+    card.innerHTML = `
+      <div class="poly-card-question">${esc(m.question || m.title || 'Market')}</div>
+      <div class="poly-card-bar-wrap"><div class="poly-card-bar-yes" style="width:${yesPct}%"></div></div>
+      <div class="poly-card-odds">
+        <span class="poly-yes">Yes ${yesPct}%</span>
+        <span class="poly-no">No ${noPct}%</span>
+      </div>
+      <div class="poly-card-meta">
+        ${vol ? `<span>${vol}</span>` : ''}
+        ${end ? `<span>Ends ${end}</span>` : ''}
+      </div>`;
+    polyResults.appendChild(card);
+  });
+}
+
+polySearchBtn.addEventListener('click', () => searchPolymarket(polySearchInput.value.trim()));
+polySearchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchPolymarket(polySearchInput.value.trim());
+});
+
+// ── Price Chart (TradingView widget) ─────────────────────────
+const chartSearchInput = document.getElementById('chart-search');
+const chartSearchBtn   = document.getElementById('chart-search-btn');
+const chartContainer   = document.getElementById('chart-container');
+let tvLibCallbacks     = [];
+let tvWidgetSeq        = 0;
+
+function ensureTVLib(cb) {
+  if (window.TradingView) { cb(); return; }
+  tvLibCallbacks.push(cb);
+  if (tvLibCallbacks.length > 1) return;
+  const s   = document.createElement('script');
+  s.src     = 'https://s3.tradingview.com/tv.js';
+  s.async   = true;
+  s.onload  = () => { tvLibCallbacks.forEach(f => f()); tvLibCallbacks = []; };
+  document.head.appendChild(s);
+}
+
+function normalizeTVSymbol(raw) {
+  const sym = raw.trim().toUpperCase().replace(/\s+/g, '');
+  if (sym.includes(':')) return sym;                        // already exchange:symbol
+  if (knownSymbols.has(sym)) return `BINANCE:${sym}USDT`;  // known crypto from CoinGecko
+  return sym;                                               // let TradingView resolve as stock
+}
+
+function loadTradingViewChart(rawSymbol) {
+  if (!rawSymbol.trim()) return;
+  const tvSym = normalizeTVSymbol(rawSymbol);
+  const id    = `tv_chart_${++tvWidgetSeq}`;
+  chartContainer.innerHTML = `<div id="${id}" style="width:100%;height:100%"></div>`;
+
+  ensureTVLib(() => {
+    new window.TradingView.widget({
+      container_id:      id,
+      autosize:          true,
+      symbol:            tvSym,
+      interval:          'D',
+      timezone:          'Etc/UTC',
+      theme:             document.documentElement.classList.contains('light') ? 'light' : 'dark',
+      style:             '1',
+      locale:            'en',
+      enable_publishing: false,
+      hide_side_toolbar: false,
+      withdateranges:    true,
+      save_image:        false,
+    });
+  });
+}
+
+chartSearchBtn.addEventListener('click',  () => loadTradingViewChart(chartSearchInput.value.trim()));
+chartSearchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadTradingViewChart(chartSearchInput.value.trim());
+});
+
+// ── Theme toggle (light / dark) ───────────────────────────────
+// Toggle on <html> so CSS vars defined in html.light cascade from :root properly
+const themeToggle = document.getElementById('theme-toggle');
+if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
+
+themeToggle.addEventListener('click', () => {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+});

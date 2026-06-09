@@ -23,6 +23,7 @@
   --red:          #ef4444;
   --gold:         #f59e0b;
 
+  --header-h:     52px;
   --ticker-h:     44px;
   --controls-h:   44px;
   --meta-h:       58px;
@@ -47,6 +48,62 @@ html, body {
 ::-webkit-scrollbar       { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+
+/* ── SITE HEADER ────────────────────────────────────────────── */
+#site-header {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+  z-index: 30;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Logo image */
+.logo-img {
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+/* Invert to black in light mode so it's visible on the grey bg */
+html.light .logo-img { filter: invert(1) brightness(0); }
+
+/* ── Theme toggle button ─────────────────────────────────────── */
+#theme-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+#theme-toggle:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border2);
+}
+/* Show moon in dark mode, sun in light mode */
+html:not(.light) .icon-sun  { display: none; }
+html.light        .icon-moon { display: none; }
 
 /* ── TICKER BAR ─────────────────────────────────────────────── */
 #ticker-bar {
@@ -253,8 +310,8 @@ html, body {
 /* ── APP LAYOUT ─────────────────────────────────────────────── */
 #app {
   display: grid;
-  grid-template-columns: var(--left-w) 1fr 8px var(--right-w);
-  height: calc(100vh - var(--ticker-h));
+  grid-template-columns: var(--left-w) 8px 1fr 8px var(--right-w);
+  height: calc(100vh - var(--header-h) - var(--ticker-h));
   overflow: hidden;
 }
 
@@ -291,7 +348,7 @@ html, body {
   border-radius: 3px;
 }
 
-/* ── LEFT PANEL: TWEETS ─────────────────────────────────────── */
+/* ── LEFT PANEL ─────────────────────────────────────────────── */
 #tweets-panel {
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -300,10 +357,169 @@ html, body {
   overflow: hidden;
 }
 
+/* Left panel tabs */
+#left-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.left-tab {
+  flex: 1;
+  padding: 9px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-cond);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--text3);
+  cursor: pointer;
+  transition: all .15s;
+  text-transform: uppercase;
+}
+.left-tab:hover  { color: var(--text2); }
+.left-tab.active { color: var(--text);  border-bottom-color: currentColor; }
+
+/* Pane containers — fills remaining space, flex column */
+.left-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.left-pane.left-pane-hidden { display: none; }
+
+/* X Posts pane: feed scrolls, view-more pinned bottom */
+#left-pane-x { overflow: hidden; }
+
 #tweets-feed {
   flex: 1;
   overflow-y: auto;
   padding: 8px 0;
+}
+
+/* Search row shared by Polymarket + Chart panes */
+.left-search-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.left-search-row input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+.left-search-row input:focus { border-color: var(--text3); }
+.left-search-row input::placeholder { color: var(--text3); }
+.left-search-row button {
+  padding: 7px 14px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-family: var(--font-cond);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.left-search-row button:hover { color: var(--text); background: var(--surface2); }
+
+/* Generic scrollable results list */
+.left-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+.left-loading,
+.left-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--font-cond);
+}
+
+/* ── Polymarket cards ──────────────────────────────────────── */
+.poly-card {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  animation: fadeUp .3s ease;
+  cursor: default;
+}
+.poly-card:hover { background: var(--surface2); }
+.poly-card-question {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.poly-card-bar-wrap {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface3);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.poly-card-bar-yes {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--green);
+  transition: width .4s ease;
+}
+.poly-card-odds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  margin-bottom: 5px;
+}
+.poly-yes { color: var(--green); font-weight: 600; }
+.poly-no  { color: var(--red);   font-weight: 600; }
+.poly-card-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+}
+
+/* ── Price chart (TradingView) ─────────────────────────────── */
+#chart-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+.chart-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text3);
+  font-family: var(--font-cond);
+  text-align: center;
+  padding: 20px;
+  letter-spacing: 0.04em;
 }
 
 .tweet-card {
@@ -867,7 +1083,8 @@ html, body {
   :root { --left-w: 230px; --right-w: 260px; }
 }
 @media (max-width: 860px) {
-  #tweets-panel { display: none; }
+  #tweets-panel  { display: none; }
+  #left-divider  { display: none; }
   #panel-divider { display: none; }
   #app { grid-template-columns: 1fr var(--right-w); }
 }
@@ -1193,7 +1410,84 @@ img.emote {
   cursor: default;
 }
 
-/* ── Divider column ──────────────────────────────────────────── */
+/* ── Left divider (mirrors right divider) ───────────────────── */
+#left-divider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  z-index: 20;
+  transition: background 0.15s;
+  gap: 6px;
+  overflow: visible;
+}
+
+#left-divider:hover,
+#left-divider.dragging {
+  background: var(--surface2);
+  border-color: var(--border2);
+}
+
+#left-divider:hover .divider-handle,
+#left-divider.dragging .divider-handle {
+  background: var(--twitch);
+}
+
+#left-snap-buttons {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#left-divider:hover #left-snap-buttons {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#left-snap-buttons button {
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  background: var(--surface3);
+  color: var(--text2);
+  font-size: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+#left-snap-buttons button:hover,
+#left-snap-buttons button.active {
+  background: var(--twitch);
+  color: white;
+  border-color: var(--twitch);
+}
+
+/* Poly cards are <a> links — reset anchor defaults */
+.poly-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ── Right divider column ────────────────────────────────────── */
 #panel-divider {
   position: relative;
   display: flex;
@@ -1280,9 +1574,137 @@ img.emote {
 
 /* ── Responsive: hide divider + collapse on small screens ──── */
 @media (max-width: 860px) {
+  #left-divider  { display: none; }
   #panel-divider { display: none; }
   #app { grid-template-columns: 1fr var(--right-w) !important; }
 }
 @media (max-width: 620px) {
   #app { grid-template-columns: 1fr !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT MODE — warm grey paper theme (inspired by sketch logo)
+   Toggle via class on <html> so CSS vars cascade from :root
+   ══════════════════════════════════════════════════════════════ */
+
+html.light {
+  /* Core palette — warm grey, like aged newsprint/cardstock */
+  --bg:       #c4c0b6;
+  --surface:  #cec9bf;
+  --surface2: #d8d4ca;
+  --surface3: #e0dcd2;
+  --border:   rgba(0,0,0,0.09);
+  --border2:  rgba(0,0,0,0.17);
+  --text:     #1a1816;
+  --text2:    #4a4844;
+  --text3:    #7e7c76;
+
+  /* Slightly muted accents for light bg */
+  --green:    #15803d;
+  --red:      #b91c1c;
+  --gold:     #a16207;
+
+  /* Dim backgrounds adjusted for grey backdrop */
+  --kick-dim:   rgba(0,100,0,0.10);
+  --twitch-dim: rgba(145,71,255,0.12);
+  --x-dim:      rgba(0,0,0,0.07);
+}
+
+/* Header: slightly more contrast in light mode */
+html.light #site-header {
+  background: var(--surface2);
+  border-bottom-color: var(--border2);
+}
+
+/* Ticker bar */
+html.light #ticker-bar {
+  background: var(--surface);
+  border-bottom-color: var(--border2);
+}
+
+/* Stream panel: keep video area dark, update control bars via vars */
+html.light #stream-panel    { background: #5a5750; }
+html.light #stream-controls { background: var(--surface); }
+html.light #stream-meta     { background: var(--surface); }
+html.light #stream-loading  { background: var(--surface2); }
+html.light .loading-logo    { color: rgba(0,0,0,0.15); }
+
+/* Tweet cards */
+html.light .tweet-card:hover { background: var(--surface3); }
+html.light .tweet-text .cashtag,
+html.light .tweet-text .hashtag { color: #1d6fa4; }
+
+/* Chat */
+html.light .chat-msg:hover  { background: var(--surface3); }
+html.light .chat-text       { color: var(--text2); }
+html.light .twitch .chat-username { color: #7c3aed; }
+html.light .kick   .chat-username { color: #166534; }
+html.light .x      .chat-username { color: var(--text2); }
+
+/* Chat input */
+html.light #chat-input {
+  background: var(--surface3);
+  border-color: var(--border2);
+  color: var(--text);
+}
+html.light #chat-input::placeholder { color: var(--text3); }
+html.light #chat-channel-select {
+  background: var(--surface3);
+  border-color: var(--border2);
+  color: var(--text);
+}
+
+/* Ticker symbols default to text color on grey */
+html.light .ticker-symbol { color: var(--text); }
+html.light .chat-ticker-mention {
+  color: #2563eb;
+  text-shadow: 0 0 6px rgba(37,99,235,0.5);
+}
+
+/* Ticker filter bar */
+html.light #ticker-filter-bar {
+  background: rgba(37,99,235,0.10);
+  border-bottom-color: rgba(37,99,235,0.25);
+  color: #1d4ed8;
+}
+html.light #ticker-filter-label { color: #1d4ed8; }
+html.light #ticker-filter-clear {
+  border-color: rgba(37,99,235,0.35);
+  color: #1d4ed8;
+}
+
+/* Self-sent message */
+html.light .chat-msg.self-sent { background: rgba(124,58,237,0.08); }
+
+/* Panel headers */
+html.light .panel-header { background: var(--surface2); }
+
+/* Dividers */
+html.light #left-divider {
+  background: var(--surface);
+  border-color: var(--border2);
+}
+html.light #left-divider:hover,
+html.light #left-divider.dragging {
+  background: var(--surface3);
+}
+html.light #panel-divider {
+  background: var(--surface);
+  border-color: var(--border2);
+}
+html.light #panel-divider:hover,
+html.light #panel-divider.dragging {
+  background: var(--surface3);
+}
+
+/* Stream channel chip */
+html.light .stream-channel-chip {
+  color: #166534;
+  background: rgba(0,100,0,0.10);
+}
+
+/* Tags */
+html.light .tag { background: var(--surface2); color: var(--text2); }
+
+/* Scrollbar */
+html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
