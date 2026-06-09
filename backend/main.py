@@ -18,6 +18,7 @@ from auth         import router as auth_router, get_session
 from chat_sender  import get_or_create_sender, remove_sender
 
 connected_clients: list[WebSocket] = []
+_twitch_channels:  list[str]      = []  # stored at startup so new WS clients get them immediately
 
 async def broadcast(message: dict):
     data = json.dumps(message)
@@ -32,9 +33,11 @@ async def broadcast(message: dict):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _twitch_channels
     from dotenv import load_dotenv
     load_dotenv()
     twitch_channels = [c.strip() for c in os.getenv("TWITCH_CHANNELS", "").split(",") if c.strip()]
+    _twitch_channels = twitch_channels
     kick_channels   = [c.strip() for c in os.getenv("KICK_CHANNELS",   "").split(",") if c.strip()]
     x_query         = os.getenv("X_SEARCH_QUERY", "")
     client_id       = os.getenv("TWITCH_CLIENT_ID", "")
@@ -67,15 +70,7 @@ async def lifespan(app: FastAPI):
             poll_viewer_counts(twitch_channels, kick_channels, broadcast, injected_token=app_token)
         ))
 
-    # Broadcast Twitch channels to frontend for stream embed
-    if twitch_channels:
-        async def send_twitch_channels():
-            await asyncio.sleep(0.5)
-            await broadcast({
-                "type":     "twitch_channels",
-                "channels": twitch_channels,
-            })
-        tasks.append(asyncio.create_task(send_twitch_channels()))
+    # _twitch_channels is now sent per-connection in websocket_endpoint
 
     yield
     for t in tasks:
@@ -95,6 +90,13 @@ async def serve_frontend():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     connected_clients.append(websocket)
+    # Send channel list immediately — the old delayed broadcast fired before any client
+    # connected, so the stream embed never loaded.
+    if _twitch_channels:
+        await websocket.send_text(json.dumps({
+            "type":     "twitch_channels",
+            "channels": _twitch_channels,
+        }))
     try:
         while True:
             raw = await websocket.receive_text()

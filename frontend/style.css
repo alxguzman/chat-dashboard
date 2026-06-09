@@ -57,22 +57,23 @@ html, body {
   position: relative;
   display: flex;
   align-items: center;
+  cursor: grab;
+}
+#ticker-bar.dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
+/* JS rAF loop controls transform — no CSS animation needed */
 .ticker-track {
   display: flex;
   align-items: center;
   gap: 0;
-  animation: ticker-scroll 45s linear infinite;
   white-space: nowrap;
-  padding-left: 100%;
+  will-change: transform;
 }
 
-@keyframes ticker-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
+/* CHANGED: cursor + transition for click-to-filter interaction */
 .ticker-item {
   display: inline-flex;
   align-items: center;
@@ -81,7 +82,12 @@ html, body {
   border-right: 1px solid var(--border);
   height: var(--ticker-h);
   flex-shrink: 0;
+  cursor: pointer;
+  transition: background .15s;
+  user-select: none;
 }
+
+.ticker-item:hover { background: rgba(255,255,255,0.04); }
 
 .ticker-icon {
   width: 22px;
@@ -120,6 +126,128 @@ html, body {
 .ticker-sparkline {
   width: 48px;
   height: 20px;
+}
+
+/* CoinGecko image icons for top-30 coins */
+.ticker-coin-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ── Ticker glow pulse keyframes ────────────────────────────────
+   Three tiers: soft (levels 1–2), medium (3–4), strong (5–6)
+   Both inset glow (lights up the cell) and outer bloom
+   ─────────────────────────────────────────────────────────────── */
+@keyframes ticker-pulse-soft {
+  0%, 100% {
+    background: rgba(59,130,246,0.07);
+    box-shadow: inset 0 0 10px rgba(147,197,253,0.15);
+  }
+  50% {
+    background: rgba(59,130,246,0.17);
+    box-shadow: inset 0 0 22px rgba(147,197,253,0.50), 0 0 14px rgba(147,197,253,0.28);
+  }
+}
+
+@keyframes ticker-pulse-med {
+  0%, 100% {
+    background: rgba(59,130,246,0.13);
+    box-shadow: inset 0 0 14px rgba(59,130,246,0.25);
+  }
+  50% {
+    background: rgba(59,130,246,0.28);
+    box-shadow: inset 0 0 30px rgba(59,130,246,0.65), 0 0 22px rgba(59,130,246,0.45);
+  }
+}
+
+@keyframes ticker-pulse-strong {
+  0%, 100% {
+    background: rgba(29,78,216,0.20);
+    box-shadow: inset 0 0 18px rgba(29,78,216,0.40), 0 0 12px rgba(29,78,216,0.30);
+  }
+  50% {
+    background: rgba(29,78,216,0.42);
+    box-shadow: inset 0 0 38px rgba(29,78,216,0.80), 0 0 32px rgba(37,99,235,0.65), 0 0 52px rgba(59,130,246,0.30);
+  }
+}
+
+/* ── Glow levels ─────────────────────────────────────────────── */
+.ticker-item.ticker-glow-1 { animation: ticker-pulse-soft 3s ease-in-out infinite; }
+.ticker-item.ticker-glow-1 .ticker-symbol { color: #bfdbfe; text-shadow: 0 0 8px rgba(191,219,254,0.65); }
+
+.ticker-item.ticker-glow-2 { animation: ticker-pulse-soft 2.5s ease-in-out infinite; }
+.ticker-item.ticker-glow-2 .ticker-symbol { color: #93c5fd; text-shadow: 0 0 10px rgba(147,197,253,0.75); }
+
+.ticker-item.ticker-glow-3 { animation: ticker-pulse-med 2.2s ease-in-out infinite; }
+.ticker-item.ticker-glow-3 .ticker-symbol { color: #60a5fa; text-shadow: 0 0 12px rgba(96,165,250,0.82); }
+
+.ticker-item.ticker-glow-4 { animation: ticker-pulse-med 1.8s ease-in-out infinite; }
+.ticker-item.ticker-glow-4 .ticker-symbol { color: #3b82f6; text-shadow: 0 0 14px rgba(59,130,246,0.90); }
+
+.ticker-item.ticker-glow-5 { animation: ticker-pulse-strong 1.5s ease-in-out infinite; }
+.ticker-item.ticker-glow-5 .ticker-symbol { color: #2563eb; text-shadow: 0 0 16px rgba(37,99,235,0.94); }
+
+.ticker-item.ticker-glow-6 { animation: ticker-pulse-strong 1.1s ease-in-out infinite; }
+.ticker-item.ticker-glow-6 .ticker-symbol {
+  color: #1d4ed8;
+  text-shadow: 0 0 18px rgba(29,78,216,1), 0 0 34px rgba(59,130,246,0.65);
+}
+
+/* Active filter: bold ring when a ticker is filtering chat */
+.ticker-item.ticker-filtered {
+  background: rgba(59,130,246,0.25) !important;
+  box-shadow: inset 0 0 0 2px rgba(96,165,250,0.7) !important;
+  animation: none !important;
+}
+.ticker-item.ticker-filtered .ticker-symbol {
+  color: #60a5fa;
+  text-shadow: 0 0 12px rgba(96,165,250,0.85);
+}
+
+/* ── $SYMBOL glow in chat text ───────────────────────────────── */
+.chat-ticker-mention {
+  color: #60a5fa;
+  font-weight: 600;
+  text-shadow: 0 0 7px rgba(96,165,250,0.65);
+}
+
+/* ── Ticker filter status bar (inside chat panel) ────────────── */
+#ticker-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  background: rgba(59,130,246,0.12);
+  border-bottom: 1px solid rgba(59,130,246,0.28);
+  font-size: 12px;
+  color: #93c5fd;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+#ticker-filter-label {
+  font-weight: 600;
+  color: #60a5fa;
+}
+
+#ticker-filter-clear {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(96,165,250,0.4);
+  border-radius: 3px;
+  color: #93c5fd;
+  font-size: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+#ticker-filter-clear:hover {
+  background: rgba(96,165,250,0.18);
+  color: #bfdbfe;
 }
 
 /* ── APP LAYOUT ─────────────────────────────────────────────── */

@@ -9,22 +9,31 @@
  */
 
 const WS_URL         = `ws${location.protocol === 'https:' ? 's' : ''}://${location.host}/ws`;
-const COINGECKO_URL  = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,ripple,dogecoin&vs_currencies=usd&include_24hr_change=true';
+// ── CHANGED: top-30 coins by market cap via /coins/markets ───────────────
+// (was: 6 hardcoded coins via /simple/price)
+const COINGECKO_MARKETS_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=30&page=1&price_change_percentage=24h&sparkline=false';
 const TICKER_REFRESH = 60_000;
 const MAX_CHAT_MSGS  = 300;
 const MAX_TWEETS     = 20;
 
-const COINS = [
-  { id: 'bitcoin',      sym: 'BTC',  color: '#F7931A', initial: 'B' },
-  { id: 'ethereum',     sym: 'ETH',  color: '#627EEA', initial: 'E' },
-  { id: 'solana',       sym: 'SOL',  color: '#9945FF', initial: 'S' },
-  { id: 'binancecoin',  sym: 'BNB',  color: '#F3BA2F', initial: 'B' },
-  { id: 'ripple',       sym: 'XRP',  color: '#00AAE4', initial: 'X' },
-  { id: 'dogecoin',     sym: 'DOGE', color: '#C2A633', initial: 'D' },
-];
+let coinsData      = [];        // populated by fetchTicker()
+const knownSymbols = new Set(); // filled on first fetch; used for $SYMBOL detection in chat
 
 // ── State ─────────────────────────────────────────────────────
-let activeTab   = 'all';
+let activeTab        = 'all';
+const tickerMentions = {}; // { 'BTC': 3, 'ETH': 1, … }
+let tickerFilter     = null; // active $SYMBOL filter, or null
+
+// Ticker JS animation (replaces CSS animation for drag + pause control)
+const TICKER_SPEED     = 25;    // px per second — slow crawl
+let tickerOffset       = 0;     // current scroll position in px
+let tickerSingleWidth  = 0;     // width of one copy of items (half of track)
+let tickerDragging     = false;
+let tickerDragStartX   = 0;
+let tickerDragStartOff = 0;
+let tickerWasDragged   = false; // suppresses click after a drag gesture
+let tickerLastTime     = null;  // last rAF timestamp; null = just resumed
+let tickerRafRunning   = false;
 let streamStart = Date.now();
 let ws          = null;
 let sessionId   = localStorage.getItem('twitch_session') || null;
@@ -72,34 +81,178 @@ document.getElementById('fullscreen-btn').addEventListener('click', () => {
   if (twitchPlayer.requestFullscreen) twitchPlayer.requestFullscreen();
 });
 
-// ── Crypto ticker ─────────────────────────────────────────────
+// ── Crypto ticker (top 30 by market cap) ──────────────────────
+// CHANGED: uses /coins/markets; populates knownSymbols for chat highlighting
 async function fetchTicker() {
   try {
-    const r = await fetch(COINGECKO_URL);
+    const r = await fetch(COINGECKO_MARKETS_URL);
     if (!r.ok) return;
-    renderTicker(await r.json());
+    coinsData = await r.json();
+    coinsData.forEach(c => knownSymbols.add(c.symbol.toUpperCase()));
+    renderTicker(coinsData);
   } catch {}
 }
 
-function renderTicker(data) {
-  const items = COINS.map(coin => {
-    const d = data[coin.id];
-    if (!d) return '';
-    const price  = d.usd;
-    const change = d.usd_24h_change ?? 0;
+// CHANGED: renders top-30 with CoinGecko icons, glow classes, and click data-sym
+function renderTicker(coins) {
+  const items = coins.map(coin => {
+    const sym    = coin.symbol.toUpperCase();
+    const price  = coin.current_price;
+    const change = coin.price_change_percentage_24h ?? 0;
     const up     = change >= 0;
     const fmt    = price >= 1000
       ? '$' + price.toLocaleString('en-US', { maximumFractionDigits: 2 })
-      : '$' + price.toLocaleString('en-US', { maximumFractionDigits: 4 });
-    return `<div class="ticker-item">
-      <div class="ticker-icon" style="background:${coin.color}22;color:${coin.color}">${coin.initial}</div>
-      <span class="ticker-symbol">${coin.sym}</span>
+      : price >= 1
+        ? '$' + price.toLocaleString('en-US', { maximumFractionDigits: 4 })
+        : '$' + price.toLocaleString('en-US', { maximumFractionDigits: 6 });
+    const mentions  = tickerMentions[sym] || 0;
+    const glowLevel = getGlowLevel(mentions);
+    const glowClass = glowLevel > 0 ? ` ticker-glow-${glowLevel}` : '';
+    const filtClass = tickerFilter === sym ? ' ticker-filtered' : '';
+    return `<div class="ticker-item${glowClass}${filtClass}" data-sym="${sym}" title="$${sym}: ${mentions} mention${mentions !== 1 ? 's' : ''}. Click to filter chat.">
+      <img class="ticker-coin-icon" src="${esc(coin.image)}" alt="${sym}">
+      <span class="ticker-symbol">${sym}</span>
       <span class="ticker-price">${fmt}</span>
       <span class="ticker-change ${up?'up':'down'}">${up?'+':''}${change.toFixed(2)}% ${up?'▲':'▼'}</span>
     </div>`;
   }).join('');
+  // Duplicate items: at -tickerSingleWidth the two copies align seamlessly
   tickerTrack.innerHTML = items + items;
+  startTickerAnimation(); // re-measure width; starts rAF loop on first call
 }
+
+// ── JS ticker animation engine ────────────────────────────────
+// Runs continuously; position only advances when not paused/dragging
+function tickerStep(ts) {
+  const paused = tickerFilter !== null || tickerDragging;
+  if (!paused && tickerSingleWidth > 0) {
+    if (tickerLastTime !== null) {
+      const dt = Math.min(ts - tickerLastTime, 50); // cap to avoid big jump after tab-switch
+      tickerOffset = (tickerOffset + TICKER_SPEED * dt / 1000) % tickerSingleWidth;
+    }
+    tickerLastTime = ts;
+  } else {
+    tickerLastTime = null; // reset so we don't jump when resuming
+  }
+  tickerTrack.style.transform = `translateX(-${tickerOffset}px)`;
+  requestAnimationFrame(tickerStep);
+}
+
+function startTickerAnimation() {
+  const all = tickerTrack.querySelectorAll('.ticker-item');
+  if (!all.length) return;
+  let w = 0;
+  for (let i = 0; i < all.length / 2; i++) w += all[i].offsetWidth;
+  if (!w) { requestAnimationFrame(startTickerAnimation); return; } // wait for layout
+  tickerSingleWidth = w;
+  tickerOffset      = tickerOffset % tickerSingleWidth;
+  if (!tickerRafRunning) { tickerRafRunning = true; requestAnimationFrame(tickerStep); }
+}
+
+// ── Ticker drag-to-scroll ─────────────────────────────────────
+const tickerBarEl = document.getElementById('ticker-bar');
+
+tickerBarEl.addEventListener('mousedown', e => {
+  tickerDragging     = true;
+  tickerWasDragged   = false;
+  tickerDragStartX   = e.clientX;
+  tickerDragStartOff = tickerOffset;
+  tickerBarEl.classList.add('dragging');
+  e.preventDefault(); // prevent text selection during drag
+});
+
+document.addEventListener('mousemove', e => {
+  if (!tickerDragging) return;
+  const dx = e.clientX - tickerDragStartX;
+  if (Math.abs(dx) > 5) tickerWasDragged = true;
+  // Drag left (dx < 0) advances ticker; drag right reverses — wrap with modulo
+  tickerOffset = ((tickerDragStartOff - dx) % tickerSingleWidth + tickerSingleWidth) % tickerSingleWidth;
+});
+
+document.addEventListener('mouseup', () => {
+  if (!tickerDragging) return;
+  tickerDragging = false;
+  tickerBarEl.classList.remove('dragging');
+});
+
+// Event delegation on tickerTrack — survives innerHTML re-renders
+tickerTrack.addEventListener('click', e => {
+  if (tickerWasDragged) return; // don't fire filter after a drag gesture
+  const item = e.target.closest('.ticker-item[data-sym]');
+  if (item) handleTickerClick(item.dataset.sym);
+});
+
+// CHANGED: click a ticker to filter chat; click again to clear
+function handleTickerClick(sym) {
+  tickerFilter = tickerFilter === sym ? null : sym;
+  applyTickerFilter();
+  updateTickerFilterBar();
+  tickerTrack.querySelectorAll('.ticker-item').forEach(el => {
+    const s   = el.dataset.sym;
+    const lvl = getGlowLevel(tickerMentions[s] || 0);
+    el.className = 'ticker-item' +
+      (lvl > 0 ? ` ticker-glow-${lvl}` : '') +
+      (tickerFilter === s ? ' ticker-filtered' : '');
+  });
+}
+
+// Glow level: 1 mention = level 1, +1 level every 2 additional mentions, max 6
+function getGlowLevel(mentions) {
+  if (mentions <= 0)  return 0;
+  if (mentions <= 2)  return 1;
+  if (mentions <= 4)  return 2;
+  if (mentions <= 6)  return 3;
+  if (mentions <= 8)  return 4;
+  if (mentions <= 10) return 5;
+  return 6;
+}
+
+// Update glow classes on both copies of a ticker item without full re-render
+function updateTickerItemGlow(sym) {
+  const mentions = tickerMentions[sym] || 0;
+  const lvl      = getGlowLevel(mentions);
+  tickerTrack.querySelectorAll(`.ticker-item[data-sym="${sym}"]`).forEach(el => {
+    el.className = 'ticker-item' +
+      (lvl > 0 ? ` ticker-glow-${lvl}` : '') +
+      (tickerFilter === sym ? ' ticker-filtered' : '');
+    el.title = `$${sym}: ${mentions} mention${mentions !== 1 ? 's' : ''}. Click to filter chat.`;
+  });
+}
+
+// Apply both platform-tab filter and ticker filter together
+function applyTickerFilter() {
+  document.querySelectorAll('.chat-msg').forEach(msg => {
+    const platform   = ['twitch','kick','x'].find(p => msg.classList.contains(p)) || '';
+    const platformOk = activeTab === 'all' || activeTab === platform;
+    const filterOk   = !tickerFilter ||
+      (msg.querySelector('.chat-text')?.textContent || '').toUpperCase().includes('$' + tickerFilter);
+    msg.classList.toggle('hidden', !(platformOk && filterOk));
+  });
+}
+
+// Show/hide the filter status bar inside the chat panel
+function updateTickerFilterBar() {
+  const bar   = document.getElementById('ticker-filter-bar');
+  const label = document.getElementById('ticker-filter-label');
+  if (!bar) return;
+  if (tickerFilter) {
+    label.textContent = '$' + tickerFilter;
+    bar.classList.remove('hidden');
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
+document.getElementById('ticker-filter-clear')?.addEventListener('click', () => {
+  tickerFilter = null;
+  applyTickerFilter();
+  updateTickerFilterBar();
+  tickerTrack.querySelectorAll('.ticker-item').forEach(el => {
+    const s   = el.dataset.sym;
+    const lvl = getGlowLevel(tickerMentions[s] || 0);
+    el.className = 'ticker-item' + (lvl > 0 ? ` ticker-glow-${lvl}` : '');
+  });
+});
 
 fetchTicker();
 setInterval(fetchTicker, TICKER_REFRESH);
@@ -148,12 +301,10 @@ function updateViewers({ total, twitch, kick }) {
 
 // ── Platform icons ────────────────────────────────────────────
 const PLATFORM_ICONS = {
-  twitch: `<svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
-  </svg>`,
-  kick: `<svg viewBox="0 0 24 24" fill="currentColor">
-    <text y="16" x="3" font-size="14" font-weight="900" font-family="Arial,sans-serif">K</text>
-  </svg>`,
+  twitch: `<img src="/static/twitch_logo.webp" width="19" height="19">`
+  ,
+  kick: `<img src="/static/kick_logo.webp" width="12" height="12">`,
+
   x: `<svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.858L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
   </svg>`,
@@ -173,7 +324,6 @@ function renderBadges(badges) {
 
 // ── Chat messages ─────────────────────────────────────────────
 function addChatMsg({ platform, channel, username, text, has_emotes, color, badges, self_sent }) {
-  // Auto-populate the Twitch channel send dropdown
   if (platform === 'twitch' && channel && !twitchChannels.has(channel)) {
     twitchChannels.add(channel);
     const opt = document.createElement('option');
@@ -186,9 +336,16 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
   const li = document.createElement('li');
   li.className = `chat-msg ${platform}${self_sent ? ' self-sent' : ''}`;
   if (activeTab !== 'all' && activeTab !== platform) li.classList.add('hidden');
+  // CHANGED: hide if ticker filter is active and message doesn't mention the symbol
+  if (tickerFilter && !(text || '').toUpperCase().includes('$' + tickerFilter)) {
+    li.classList.add('hidden');
+  }
 
-  const rendered    = has_emotes ? text : esc(text);
-  const badgeHTML   = renderBadges(badges);
+  // CHANGED: highlight $SYMBOL with blue glow; safe for emote HTML via text-node-only pass
+  let rendered = has_emotes ? text : esc(text);
+  rendered     = highlightTickers(rendered);
+
+  const badgeHTML     = renderBadges(badges);
   const usernameColor = color || (platform === 'kick' ? '#53FC18' : '#9147FF');
 
   li.innerHTML = `
@@ -197,19 +354,46 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
       <span class="chat-badges">${badgeHTML}</span><span class="chat-username" style="color:${usernameColor}">${esc(username)}</span><span class="chat-text">${rendered}</span>
     </div>`;
 
+  // CHANGED: tally $SYMBOL mentions and update ticker glow live
+  countChatTickers(text);
+
   chatFeed.prepend(li);
   while (chatFeed.children.length > MAX_CHAT_MSGS) chatFeed.removeChild(chatFeed.lastChild);
 }
 
+// Wrap $SYMBOL in a glow span; operates only on text nodes to preserve emote img tags
+function highlightTickers(html) {
+  return html.replace(/([^<>]*)(<[^>]*>|$)/g, (_, textNode, tag) => {
+    if (!textNode) return tag || '';
+    const highlighted = textNode.replace(/\$([A-Za-z]{2,6})/g, (m, sym) =>
+      knownSymbols.has(sym.toUpperCase())
+        ? `<span class="chat-ticker-mention">${m}</span>`
+        : m
+    );
+    return highlighted + (tag || '');
+  });
+}
+
+// Count $SYMBOL mentions in raw message text; update ticker glow per mention
+function countChatTickers(text) {
+  const matches = (text || '').match(/\$([A-Za-z]{2,6})/g) || [];
+  matches.forEach(m => {
+    const sym = m.slice(1).toUpperCase();
+    if (knownSymbols.has(sym)) {
+      tickerMentions[sym] = (tickerMentions[sym] || 0) + 1;
+      updateTickerItemGlow(sym);
+    }
+  });
+}
+
 // ── Tab filters ───────────────────────────────────────────────
+// CHANGED: delegates to applyTickerFilter() so platform + ticker filters compose
 document.querySelectorAll('.chat-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     activeTab = btn.dataset.platform;
     document.querySelectorAll('.chat-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    document.querySelectorAll('.chat-msg').forEach(m => {
-      m.classList.toggle('hidden', activeTab !== 'all' && !m.classList.contains(activeTab));
-    });
+    applyTickerFilter();
   });
 });
 
