@@ -115,13 +115,6 @@
           </div>
           <span class="stream-channel-chip" id="stream-channel-chip">—</span>
         </div>
-        <div class="controls-mid">
-          <span id="viewer-count" title="">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-            <span id="viewer-num">—</span>
-          </span>
-          <span id="stream-timer">00:00:00</span>
-        </div>
         <div class="controls-right">
           <button class="ctrl-btn" id="fullscreen-btn" title="Fullscreen">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -161,8 +154,27 @@
     <!-- RIGHT: Chat -->
     <aside id="chat-panel">
       <div class="panel-header">
-        <div class="panel-title">Live Chat</div>
-        <div id="ws-status" class="ws-dot disconnected"></div>
+        <div class="panel-header-left">
+          <div class="panel-title">Live Chat</div>
+          <div id="streamer-btns">
+            <button class="streamer-btn active" data-streamer="all" title="All chats combined">
+              <img src="/static/mblogo.jpg" alt="All">
+            </button>
+            <button class="streamer-btn" data-streamer="banks" title="FazeBanks">
+              <img src="/static/banks.png" alt="FazeBanks">
+            </button>
+            <button class="streamer-btn" data-streamer="ansem" title="Ansem">
+              <img src="/static/ansem.webp" alt="Ansem">
+            </button>
+          </div>
+        </div>
+        <div class="panel-header-right">
+          <span id="viewer-count" title="">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            <span id="viewer-num">—</span>
+          </span>
+          <div id="ws-status" class="ws-dot disconnected"></div>
+        </div>
       </div>
 
       <div id="chat-tabs">

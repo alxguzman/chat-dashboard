@@ -23,6 +23,33 @@ const knownSymbols = new Set(); // filled on first fetch; used for $SYMBOL detec
 let activeTab        = 'all';
 const tickerMentions = {}; // { 'BTC': 3, 'ETH': 1, … }
 let tickerFilter     = null; // active $SYMBOL filter, or null
+let streamerFilter   = null; // 'banks' | 'ansem' | null (all)
+
+// Map streamer keys → channel names they own on any platform
+const STREAMER_CHANNELS = {
+  banks: ['fazebanks', 'banks'],
+  ansem: ['ansem', 'ansem'],
+};
+
+const STREAMER_DISPLAY = {
+  banks: 'FazeBanks',
+  ansem: 'Ansem',
+};
+
+function getStreamerKey(channel) {
+  const ch = (channel || '').toLowerCase();
+  for (const [key, chans] of Object.entries(STREAMER_CHANNELS)) {
+    if (chans.some(c => ch.includes(c))) return key;
+  }
+  return null;
+}
+
+function getChannelTooltip(platform, channel) {
+  const plat    = { twitch: 'Twitch', kick: 'Kick', x: 'X' }[platform] || platform;
+  const key     = getStreamerKey(channel);
+  const name    = key ? STREAMER_DISPLAY[key] : (channel || platform);
+  return `${name} · ${plat}`;
+}
 
 // Ticker JS animation (replaces CSS animation for drag + pause control)
 const TICKER_SPEED     = 25;    // px per second — slow crawl
@@ -34,7 +61,6 @@ let tickerDragStartOff = 0;
 let tickerWasDragged   = false; // suppresses click after a drag gesture
 let tickerLastTime     = null;  // last rAF timestamp; null = just resumed
 let tickerRafRunning   = false;
-let streamStart = Date.now();
 let ws          = null;
 let sessionId   = localStorage.getItem('twitch_session') || null;
 let twitchUser  = JSON.parse(localStorage.getItem('twitch_user') || 'null');
@@ -47,7 +73,6 @@ const tweetsFeed     = document.getElementById('tweets-feed');
 const wsDot          = document.getElementById('ws-status');
 const viewerNum      = document.getElementById('viewer-num');
 const viewerCount    = document.getElementById('viewer-count');
-const streamTimer    = document.getElementById('stream-timer');
 const loginPrompt    = document.getElementById('login-prompt');
 const loggedInBar    = document.getElementById('logged-in-bar');
 const twitchLoginBtn = document.getElementById('twitch-login-btn');
@@ -219,14 +244,16 @@ function updateTickerItemGlow(sym) {
   });
 }
 
-// Apply both platform-tab filter and ticker filter together
+// Apply platform-tab + ticker + streamer filters together
 function applyTickerFilter() {
   document.querySelectorAll('.chat-msg').forEach(msg => {
     const platform   = ['twitch','kick','x'].find(p => msg.classList.contains(p)) || '';
     const platformOk = activeTab === 'all' || activeTab === platform;
-    const filterOk   = !tickerFilter ||
+    const tickerOk   = !tickerFilter ||
       (msg.querySelector('.chat-text')?.textContent || '').toUpperCase().includes('$' + tickerFilter);
-    msg.classList.toggle('hidden', !(platformOk && filterOk));
+    const streamerOk = !streamerFilter ||
+      getStreamerKey(msg.dataset.channel) === streamerFilter;
+    msg.classList.toggle('hidden', !(platformOk && tickerOk && streamerOk));
   });
 }
 
@@ -335,11 +362,12 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
 
   const li = document.createElement('li');
   li.className = `chat-msg ${platform}${self_sent ? ' self-sent' : ''}`;
-  if (activeTab !== 'all' && activeTab !== platform) li.classList.add('hidden');
-  // CHANGED: hide if ticker filter is active and message doesn't mention the symbol
-  if (tickerFilter && !(text || '').toUpperCase().includes('$' + tickerFilter)) {
-    li.classList.add('hidden');
-  }
+  li.dataset.channel = channel || '';
+  const platformOk  = activeTab === 'all' || activeTab === platform;
+  const tickerOk    = !tickerFilter || (text || '').toUpperCase().includes('$' + tickerFilter);
+  const streamerKey = getStreamerKey(channel);
+  const streamerOk  = !streamerFilter || streamerKey === streamerFilter;
+  if (!platformOk || !tickerOk || !streamerOk) li.classList.add('hidden');
 
   // CHANGED: highlight $SYMBOL with blue glow; safe for emote HTML via text-node-only pass
   let rendered = has_emotes ? text : esc(text);
@@ -348,10 +376,11 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
   const badgeHTML     = renderBadges(badges);
   const usernameColor = color || (platform === 'kick' ? '#53FC18' : '#9147FF');
 
+  const tooltip = getChannelTooltip(platform, channel);
   li.innerHTML = `
     <div class="platform-icon ${platform}">${PLATFORM_ICONS[platform] || ''}</div>
     <div class="chat-body">
-      <span class="chat-badges">${badgeHTML}</span><span class="chat-username" style="color:${usernameColor}">${esc(username)}</span><span class="chat-text">${rendered}</span>
+      <span class="chat-badges">${badgeHTML}</span><span class="chat-username" style="color:${usernameColor}" data-tooltip="${esc(tooltip)}">${esc(username)}</span><span class="chat-text">${rendered}</span>
     </div>`;
 
   // CHANGED: tally $SYMBOL mentions and update ticker glow live
@@ -386,12 +415,22 @@ function countChatTickers(text) {
   });
 }
 
-// ── Tab filters ───────────────────────────────────────────────
-// CHANGED: delegates to applyTickerFilter() so platform + ticker filters compose
+// ── Platform tab filters ──────────────────────────────────────
 document.querySelectorAll('.chat-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     activeTab = btn.dataset.platform;
     document.querySelectorAll('.chat-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyTickerFilter();
+  });
+});
+
+// ── Streamer filters ──────────────────────────────────────────
+document.querySelectorAll('.streamer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.streamer;
+    streamerFilter = key === 'all' ? null : key;
+    document.querySelectorAll('.streamer-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     applyTickerFilter();
   });
@@ -504,13 +543,6 @@ function addTweet({ username, text, verified, replies, retweets, likes, time_ago
   { username:'MacroScope17', text:'The liquidity cycle is turning. Altseason signals flashing.', verified:false, replies:7, retweets:15, likes:112, time_ago:'6m' },
   { username:'Defi_Mochi',   text:'Solana ecosystem momentum is insane right now. $SOL', verified:false, replies:9, retweets:22, likes:198, time_ago:'8m' },
 ].reverse().forEach(t => addTweet(t));
-
-// ── Stream timer ──────────────────────────────────────────────
-setInterval(() => {
-  const s = Math.floor((Date.now() - streamStart) / 1000);
-  streamTimer.textContent =
-    `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-}, 1000);
 
 // ── Toast ─────────────────────────────────────────────────────
 let toastTimer;
@@ -811,7 +843,9 @@ function renderPolyResults(markets) {
   markets.forEach(m => {
     const card = document.createElement('a');
     card.className = 'poly-card';
-    card.href      = `https://polymarket.com/event/${m.slug}`;
+    // The market's own slug is NOT the URL slug — the parent event's slug is
+    const eventSlug = m.events?.[0]?.slug || m.slug;
+    card.href      = `https://polymarket.com/event/${eventSlug}`;
     card.target    = '_blank';
     card.rel       = 'noopener noreferrer';
 

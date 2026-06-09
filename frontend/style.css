@@ -1010,11 +1010,90 @@ html.light        .icon-moon { display: none; }
 
 .chat-body { flex: 1; min-width: 0; }
 
+/* Chat panel header layout — left group + right group */
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Streamer filter buttons */
+#streamer-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.streamer-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .15s, box-shadow .15s, opacity .15s;
+  opacity: 0.45;
+  flex-shrink: 0;
+}
+
+.streamer-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.streamer-btn:hover { opacity: 0.8; border-color: var(--text2); }
+
+.streamer-btn.active {
+  opacity: 1;
+  border-color: var(--twitch);
+  box-shadow: 0 0 8px rgba(145,71,255,0.55);
+}
+
+/* Username + tooltip */
 .chat-username {
   font-weight: 600;
   font-size: 12px;
   margin-right: 6px;
+  position: relative;
+  cursor: default;
 }
+
+.chat-username[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,10,15,0.92);
+  color: #fff;
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: var(--font-cond);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 200;
+  border: 1px solid var(--border2);
+}
+
+.chat-username[data-tooltip]:hover::after { opacity: 1; }
 
 .twitch .chat-username { color: var(--twitch); }
 .kick   .chat-username { color: var(--kick);   }
