@@ -19,11 +19,76 @@ const MAX_TWEETS     = 20;
 let coinsData      = [];        // populated by fetchTicker()
 const knownSymbols = new Set(); // filled on first fetch; used for $SYMBOL detection in chat
 
+// ── Fear & Greed — chat-powered sentiment index ───────────────
+const FEAR_WORDS = new Set([
+  'down','dip','dipping','dump','dumping','fud','bad','bear','bearish',
+  'short','shorting','tank','tanking','sell','selling','crash','crashing',
+  'recession','red','drop','dropping','fall','falling','bleed','bleeding',
+  'rekt','rug','rugged','panic','correction','capitulate','capitulation',
+  'dead','dying','bust','loss','losses','losing','weak','weakness',
+  'fear','scary','scared','pain','broke','broken','doomed','lower',
+  'lows','selloff','sold','trapped','bubble','overvalued','liquidate',
+  'liquidation','stop','overbought','resist','resistance','rejected','rejection',
+]);
+const GREED_WORDS = new Set([
+  'up','moon','mooning','pump','pumping','good','green','bull','bullish',
+  'long','longing','buy','buying','btd','ath','rip','ripping','fly','flying',
+  'rally','rallying','run','breakout','bounce','bouncing','recovery','recovering',
+  'strong','strength','hodl','hold','holding','gains','profit','winning',
+  'rise','rising','higher','parabolic','send','sending','lfg','fire','hot',
+  'great','amazing','explosive','surge','surging','print','printing',
+  'wagmi','based','chad','banger','go','lets','easy','undervalued',
+  'support','oversold','accumulate','accumulating','loaded',
+]);
+
+let fgFearCount  = 0;
+let fgGreedCount = 0;
+
+function _fgScore() {
+  const t = fgFearCount + fgGreedCount;
+  return t === 0 ? 50 : Math.round(50 + (fgGreedCount - fgFearCount) / t * 50);
+}
+
+function updateFGGauge() {
+  const score    = _fgScore();
+  const count    = fgFearCount + fgGreedCount;
+  const rotation = (score - 50) * 1.8;  // –90° (fear) … 0° (neutral) … +90° (greed)
+  const needle   = document.getElementById('fg-needle-group');
+  const countEl  = document.getElementById('fg-count');
+  if (needle)  needle.style.transform = `rotate(${rotation}deg)`;
+  if (countEl) countEl.textContent    = count;
+}
+
+function processFGWords(text) {
+  const words   = (text || '').toLowerCase().match(/\b[a-z]+\b/g) || [];
+  let   changed = false;
+  for (const w of words) {
+    if      (FEAR_WORDS.has(w))  { fgFearCount++;  changed = true; }
+    else if (GREED_WORDS.has(w)) { fgGreedCount++; changed = true; }
+  }
+  if (changed) updateFGGauge();
+}
+
+// Wraps fear/greed words in colored spans; text-node-only (safe with emote HTML)
+function highlightSentiment(html) {
+  return html.replace(/([^<>]*)(<[^>]*>|$)/g, (_, textNode, tag) => {
+    if (!textNode) return tag || '';
+    const out = textNode.replace(/\b([a-zA-Z]+)\b/g, word => {
+      const lw = word.toLowerCase();
+      if (FEAR_WORDS.has(lw))  return `<span class="fear-word">${word}</span>`;
+      if (GREED_WORDS.has(lw)) return `<span class="greed-word">${word}</span>`;
+      return word;
+    });
+    return out + (tag || '');
+  });
+}
+
 // ── State ─────────────────────────────────────────────────────
 let activeTab        = 'all';
 const tickerMentions = {}; // { 'BTC': 3, 'ETH': 1, … }
-let tickerFilter     = null; // active $SYMBOL filter, or null
-let streamerFilter   = null; // 'banks' | 'ansem' | null (all)
+let tickerFilter     = null;  // active $SYMBOL filter, or null
+let streamerFilter   = null;  // 'banks' | 'ansem' | null (all)
+let fgFilter         = false; // true = show only messages with sentiment words
 
 // Map streamer keys → channel names they own on any platform
 const STREAMER_CHANNELS = {
@@ -244,7 +309,7 @@ function updateTickerItemGlow(sym) {
   });
 }
 
-// Apply platform-tab + ticker + streamer filters together
+// Apply platform-tab + ticker + streamer + sentiment filters together
 function applyTickerFilter() {
   document.querySelectorAll('.chat-msg').forEach(msg => {
     const platform   = ['twitch','kick','x'].find(p => msg.classList.contains(p)) || '';
@@ -253,7 +318,8 @@ function applyTickerFilter() {
       (msg.querySelector('.chat-text')?.textContent || '').toUpperCase().includes('$' + tickerFilter);
     const streamerOk = !streamerFilter ||
       getStreamerKey(msg.dataset.channel) === streamerFilter;
-    msg.classList.toggle('hidden', !(platformOk && tickerOk && streamerOk));
+    const fgOk       = !fgFilter || msg.dataset.fg === '1';
+    msg.classList.toggle('hidden', !(platformOk && tickerOk && streamerOk && fgOk));
   });
 }
 
@@ -279,6 +345,28 @@ document.getElementById('ticker-filter-clear')?.addEventListener('click', () => 
     const lvl = getGlowLevel(tickerMentions[s] || 0);
     el.className = 'ticker-item' + (lvl > 0 ? ` ticker-glow-${lvl}` : '');
   });
+});
+
+// ── Sentiment (Fear/Greed) filter ─────────────────────────────
+function updateFGFilterBar() {
+  const bar = document.getElementById('fg-filter-bar');
+  const gauge = document.getElementById('fear-greed-gauge');
+  if (!bar) return;
+  bar.classList.toggle('hidden', !fgFilter);
+  gauge?.classList.toggle('fg-active', fgFilter);
+}
+
+document.getElementById('fear-greed-gauge')?.addEventListener('click', () => {
+  fgFilter = !fgFilter;
+  applyTickerFilter();
+  updateFGFilterBar();
+});
+
+document.getElementById('fg-filter-clear')?.addEventListener('click', (e) => {
+  e.stopPropagation(); // don't re-toggle the gauge
+  fgFilter = false;
+  applyTickerFilter();
+  updateFGFilterBar();
 });
 
 fetchTicker();
@@ -391,15 +479,25 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
   const li = document.createElement('li');
   li.className = `chat-msg ${platform}${self_sent ? ' self-sent' : ''}`;
   li.dataset.channel = channel || '';
+
+  // Tag with sentiment presence for filter — computed before processFGWords so we can reuse it
+  const _fgWords = (text || '').toLowerCase().match(/\b[a-z]+\b/g) || [];
+  const hasFG    = _fgWords.some(w => FEAR_WORDS.has(w) || GREED_WORDS.has(w));
+  li.dataset.fg  = hasFG ? '1' : '0';
+
   const platformOk  = activeTab === 'all' || activeTab === platform;
   const tickerOk    = !tickerFilter || (text || '').toUpperCase().includes('$' + tickerFilter);
   const streamerKey = getStreamerKey(channel);
   const streamerOk  = !streamerFilter || streamerKey === streamerFilter;
-  if (!platformOk || !tickerOk || !streamerOk) li.classList.add('hidden');
+  const fgOk        = !fgFilter || hasFG;
+  if (!platformOk || !tickerOk || !streamerOk || !fgOk) li.classList.add('hidden');
 
-  // CHANGED: highlight $SYMBOL with blue glow; safe for emote HTML via text-node-only pass
+  // Score raw text for fear/greed gauge before any HTML escaping
+  processFGWords(text);
+
   let rendered = has_emotes ? text : esc(text);
   rendered     = highlightTickers(rendered);
+  rendered     = highlightSentiment(rendered);  // red/green glow on sentiment words
 
   const badgeHTML     = renderBadges(badges);
   const usernameColor = color || (platform === 'kick' ? '#53FC18' : '#9147FF');

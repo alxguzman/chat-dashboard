@@ -126,8 +126,42 @@
           <span class="tag">Markets</span>
         </div> -->
         <div class="stream-meta-right">
-          <button class="subscribe-btn">Subscribe ▾</button>
-          <!-- fullscreen button removed -->
+          <!-- Fear & Greed gauge — powered by live chat sentiment -->
+          <div id="fear-greed-gauge">
+            <svg id="fg-svg" viewBox="0 0 160 112" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="fg-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%"   stop-color="#e53e3e"/>
+                  <stop offset="28%"  stop-color="#ed8936"/>
+                  <stop offset="50%"  stop-color="#ecc94b"/>
+                  <stop offset="72%"  stop-color="#9ae6b4"/>
+                  <stop offset="100%" stop-color="#38a169"/>
+                </linearGradient>
+              </defs>
+              <!-- Dark track -->
+              <path d="M 24 80 A 56 56 0 0 1 136 80" fill="none" stroke="#1a202c" stroke-width="13" stroke-linecap="round"/>
+              <!-- Gradient arc -->
+              <path d="M 24 80 A 56 56 0 0 1 136 80" fill="none" stroke="url(#fg-grad)" stroke-width="13" stroke-linecap="round"/>
+              <!-- Needle (rotates around 80,80) -->
+              <g id="fg-needle-group">
+                <line x1="80" y1="80" x2="80" y2="30" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round"/>
+              </g>
+              <!-- Center knob -->
+              <circle cx="80" cy="80" r="5.5" fill="#4a5568"/>
+              <circle cx="80" cy="80" r="2.5"  fill="#1a202c"/>
+              <!-- Chat word count -->
+              <text id="fg-count" x="80" y="70" text-anchor="middle"
+                    fill="#e2e8f0" font-family="JetBrains Mono,monospace"
+                    font-size="11" font-weight="600">0</text>
+              <!-- Labels -->
+              <text x="20"  y="108" text-anchor="middle" fill="#fc8181"
+                    font-family="Barlow Condensed,sans-serif"
+                    font-size="12" font-weight="700" letter-spacing="0.08em">FEAR</text>
+              <text x="140" y="108" text-anchor="middle" fill="#68d391"
+                    font-family="Barlow Condensed,sans-serif"
+                    font-size="12" font-weight="700" letter-spacing="0.08em">GREED</text>
+            </svg>
+          </div>
         </div>
       </div>
     </main>
@@ -179,6 +213,12 @@
       <div id="ticker-filter-bar" class="hidden">
         Showing: <span id="ticker-filter-label"></span>
         <button id="ticker-filter-clear">✕ clear</button>
+      </div>
+
+      <!-- Sentiment filter bar — shown when Fear/Greed gauge is clicked -->
+      <div id="fg-filter-bar" class="hidden">
+        Showing sentiment messages only
+        <button id="fg-filter-clear">✕ clear</button>
       </div>
 
       <div id="chat-feed-wrap">

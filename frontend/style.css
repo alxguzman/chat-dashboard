@@ -25,7 +25,7 @@
 
   --header-h:     52px;
   --ticker-h:     44px;
-  --meta-h:       68px;
+  --meta-h:       104px;
   --left-w:       280px;
   --right-w:      300px;
 
@@ -304,6 +304,37 @@ html.light        .icon-moon { display: none; }
 #ticker-filter-clear:hover {
   background: rgba(96,165,250,0.18);
   color: #bfdbfe;
+}
+
+/* ── Sentiment (Fear/Greed) filter bar ───────────────────────── */
+#fg-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  background: rgba(139,92,246,0.12);
+  border-bottom: 1px solid rgba(139,92,246,0.28);
+  font-size: 12px;
+  color: #c4b5fd;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+#fg-filter-clear {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(167,139,250,0.4);
+  border-radius: 3px;
+  color: #c4b5fd;
+  font-size: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+#fg-filter-clear:hover {
+  background: rgba(139,92,246,0.2);
+  color: #ddd6fe;
 }
 
 /* ── APP LAYOUT ─────────────────────────────────────────────── */
@@ -869,23 +900,46 @@ html.light        .icon-moon { display: none; }
   font-weight: 500;
 }
 
-.subscribe-btn {
-  padding: 8px 18px;
-  background: var(--twitch);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
-  font-family: var(--font-cond);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.03em;
+/* ── Fear & Greed Gauge ──────────────────────────────────────── */
+#fear-greed-gauge {
+  display: flex;
+  align-items: center;
   cursor: pointer;
-  transition: opacity .15s;
-  flex-shrink: 0;
-  white-space: nowrap;
+  border-radius: 6px;
+  padding: 2px 4px;
+  transition: background .15s;
+}
+#fear-greed-gauge:hover {
+  background: rgba(255,255,255,0.06);
+}
+#fear-greed-gauge.fg-active {
+  background: rgba(139,92,246,0.18);
+  outline: 1px solid rgba(139,92,246,0.5);
 }
 
-.subscribe-btn:hover { opacity: 0.88; }
+#fg-svg {
+  height: 92px;
+  width: auto;
+}
+
+#fg-needle-group {
+  transform-origin: 80px 80px;
+  transform: rotate(0deg);
+  transition: transform 0.55s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ── Chat sentiment word highlights ─────────────────────────── */
+.fear-word {
+  color: #fc5c5c;
+  text-shadow: 0 0 7px rgba(245, 60, 60, 0.75);
+  font-weight: 500;
+}
+
+.greed-word {
+  color: #4ade80;
+  text-shadow: 0 0 7px rgba(50, 210, 100, 0.75);
+  font-weight: 500;
+}
 
 /* ── RIGHT PANEL: CHAT ──────────────────────────────────────── */
 #chat-panel {
@@ -1682,6 +1736,8 @@ html.light #ticker-bar {
 /* Stream panel: keep video area dark, update control bars via vars */
 html.light #stream-panel    { background: #5a5750; }
 html.light #stream-meta     { background: var(--surface); }
+html.light #fg-svg text     { fill: #1a202c; }
+html.light #fg-svg #fg-count { fill: #2d3748; }
 html.light #stream-loading  { background: var(--surface2); }
 html.light .loading-logo    { color: rgba(0,0,0,0.15); }
 
@@ -1724,6 +1780,17 @@ html.light #ticker-filter-bar {
   color: #1d4ed8;
 }
 html.light #ticker-filter-label { color: #1d4ed8; }
+
+/* Sentiment filter bar */
+html.light #fg-filter-bar {
+  background: rgba(109,40,217,0.08);
+  border-bottom-color: rgba(109,40,217,0.2);
+  color: #5b21b6;
+}
+html.light #fg-filter-clear {
+  border-color: rgba(109,40,217,0.35);
+  color: #5b21b6;
+}
 html.light #ticker-filter-clear {
   border-color: rgba(37,99,235,0.35);
   color: #1d4ed8;
