@@ -272,7 +272,23 @@ tickerTrack.addEventListener('click', e => {
   if (item) handleTickerClick(item.dataset.sym);
 });
 
-// CHANGED: click a ticker to filter chat; click again to clear
+// Open the Price Chart tab and load a symbol — called from ticker bar and chat clicks
+function switchToChart(sym) {
+  // Switch left panel tab to "chart"
+  leftTabBtns.forEach(t => t.classList.remove('active'));
+  document.querySelector('.left-tab[data-left-tab="chart"]')?.classList.add('active');
+  Object.values(leftPaneMap).forEach(p => p.classList.add('left-pane-hidden'));
+  leftPaneMap.chart.classList.remove('left-pane-hidden');
+  const cfg = LEFT_TITLES.chart;
+  document.getElementById('left-panel-title').innerHTML =
+    `${cfg.icon}<span id="left-panel-title-text">${cfg.text}</span>`;
+
+  // Load the chart for this symbol
+  chartSearchInput.value = sym;
+  loadTradingViewChart(sym);
+}
+
+// CHANGED: click a ticker to filter chat + open price chart
 function handleTickerClick(sym) {
   tickerFilter = tickerFilter === sym ? null : sym;
   applyTickerFilter();
@@ -284,6 +300,7 @@ function handleTickerClick(sym) {
       (lvl > 0 ? ` ticker-glow-${lvl}` : '') +
       (tickerFilter === s ? ' ticker-filtered' : '');
   });
+  switchToChart(sym);
 }
 
 // Glow level: 1 mention = level 1, +1 level every 2 additional mentions, max 6
@@ -1098,6 +1115,37 @@ function loadTradingViewChart(rawSymbol) {
 chartSearchBtn.addEventListener('click',  () => loadTradingViewChart(chartSearchInput.value.trim()));
 chartSearchInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') loadTradingViewChart(chartSearchInput.value.trim());
+});
+
+// Click a $TICKER mention in chat → open price chart
+chatFeed.addEventListener('click', e => {
+  const mention = e.target.closest('.chat-ticker-mention');
+  if (!mention) return;
+  const sym = mention.textContent.replace(/^\$/, '').toUpperCase();
+  switchToChart(sym);
+});
+
+// ── Page navigation (Home / Leaderboard / Shop) ───────────────
+const navBtns = document.querySelectorAll('.nav-btn');
+const pageEls = {
+  leaderboard: document.getElementById('page-leaderboard'),
+  shop:        document.getElementById('page-shop'),
+};
+
+navBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.page;
+    navBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (target === 'home') {
+      appEl.classList.remove('hidden');
+      Object.values(pageEls).forEach(p => p.classList.add('hidden'));
+    } else {
+      appEl.classList.add('hidden');
+      Object.values(pageEls).forEach(p => p.classList.add('hidden'));
+      pageEls[target]?.classList.remove('hidden');
+    }
+  });
 });
 
 // ── Theme toggle (light / dark) ───────────────────────────────

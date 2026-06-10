@@ -16,6 +16,12 @@
       <img class="logo-img" src="/static/market_bubble_logo.png" height="14", width="14", alt="Market Bubble" draggable="false"/>
     </a>
 
+    <nav id="site-nav">
+      <button class="nav-btn active" data-page="home">Home</button>
+      <button class="nav-btn" data-page="leaderboard">Leaderboard</button>
+      <button class="nav-btn" data-page="shop">Shop</button>
+    </nav>
+
     <button id="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
       <!-- Moon: shown in dark mode -->
       <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" width="17" height="17">
@@ -113,7 +119,7 @@
           <span class="live-label"></span> -->
         </div>
         <span class="stream-channel-chip" id="stream-channel-chip">—</span>
-        <div class="stream-avatar">MB</div>
+        <div class="stream-avatar"><img src="/static/mblogo.jpg" alt="MB" draggable="false"/></div>
         <div class="stream-meta-info">
           <div class="stream-channel-name">Market Bubble
             <svg width="13" height="13" viewBox="0 0 24 24" fill="#5b9bd5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
@@ -127,7 +133,7 @@
         </div> -->
         <div class="stream-meta-right">
           <!-- Fear & Greed gauge — powered by live chat sentiment -->
-          <div id="fear-greed-gauge">
+          <div id="fear-greed-gauge" title="Chat's Fear and Greed Index">
             <svg id="fg-svg" viewBox="0 0 160 112" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="fg-grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -150,7 +156,7 @@
               <circle cx="80" cy="80" r="5.5" fill="#4a5568"/>
               <circle cx="80" cy="80" r="2.5"  fill="#1a202c"/>
               <!-- Chat word count -->
-              <text id="fg-count" x="80" y="70" text-anchor="middle"
+              <text id="fg-count" x="80" y="50" text-anchor="middle"
                     fill="#e2e8f0" font-family="JetBrains Mono,monospace"
                     font-size="11" font-weight="600">0</text>
               <!-- Labels -->
@@ -250,6 +256,203 @@
       </div>
     </aside>
 
+  </div>
+
+  <!-- ── Leaderboard Page ─────────────────────────────────────── -->
+  <div id="page-leaderboard" class="page hidden">
+    <div class="page-inner">
+      <div class="page-hd">
+        <h1 class="page-title">Chat Leaderboard <span class="badge-beta">BETA</span></h1>
+        <p class="page-sub">Top portfolio performers in the Market Bubble community · Year to Date 2026</p>
+      </div>
+      <div class="lb-wrap">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th class="th-rank">Rank</th>
+              <th>Trader</th>
+              <th>Portfolio Value</th>
+              <th>YTD Gain / Loss</th>
+              <th>Return</th>
+              <th>Top Hold</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="lb-1">
+              <td class="lb-rank">🥇</td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#7c3aed">CK</span><span class="lb-name">CryptoKing88</span></div></td>
+              <td class="lb-val">$847,523</td>
+              <td class="lb-gain pos">+$124,350</td>
+              <td class="lb-pct pos">+17.2%</td>
+              <td class="lb-hold">BTC</td>
+            </tr>
+            <tr class="lb-2">
+              <td class="lb-rank">🥈</td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#0e7490">MH</span><span class="lb-name">MoonHodler</span></div></td>
+              <td class="lb-val">$623,890</td>
+              <td class="lb-gain pos">+$98,240</td>
+              <td class="lb-pct pos">+18.7%</td>
+              <td class="lb-hold">ETH</td>
+            </tr>
+            <tr class="lb-3">
+              <td class="lb-rank">🥉</td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#b45309">DD</span><span class="lb-name">DeFiDegen</span></div></td>
+              <td class="lb-val">$412,770</td>
+              <td class="lb-gain pos">+$72,100</td>
+              <td class="lb-pct pos">+21.2%</td>
+              <td class="lb-hold">SOL</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">4</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#15803d">BR</span><span class="lb-name">BullRunRider</span></div></td>
+              <td class="lb-val">$389,450</td>
+              <td class="lb-gain pos">+$45,230</td>
+              <td class="lb-pct pos">+13.1%</td>
+              <td class="lb-hold">BTC</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">5</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#1d4ed8">SD</span><span class="lb-name">SatoshiDreams</span></div></td>
+              <td class="lb-val">$287,640</td>
+              <td class="lb-gain pos">+$38,920</td>
+              <td class="lb-pct pos">+15.6%</td>
+              <td class="lb-hold">BTC</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">6</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#be185d">AS</span><span class="lb-name">AlphaSeeker</span></div></td>
+              <td class="lb-val">$234,180</td>
+              <td class="lb-gain pos">+$29,870</td>
+              <td class="lb-pct pos">+14.6%</td>
+              <td class="lb-hold">AVAX</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">7</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#065f46">GC</span><span class="lb-name">GreenCandleGuy</span></div></td>
+              <td class="lb-val">$198,730</td>
+              <td class="lb-gain pos">+$18,450</td>
+              <td class="lb-pct pos">+10.2%</td>
+              <td class="lb-hold">LINK</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">8</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#374151">HD</span><span class="lb-name">HODLorDie</span></div></td>
+              <td class="lb-val">$167,520</td>
+              <td class="lb-gain pos">+$12,340</td>
+              <td class="lb-pct pos">+7.9%</td>
+              <td class="lb-hold">ETH</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">9</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#6b21a8">WW</span><span class="lb-name">WhaleWatcher</span></div></td>
+              <td class="lb-val">$143,290</td>
+              <td class="lb-gain neg">−$8,710</td>
+              <td class="lb-pct neg">−5.7%</td>
+              <td class="lb-hold">BNB</td>
+            </tr>
+            <tr>
+              <td class="lb-rank"><span class="lb-rank-n">10</span></td>
+              <td><div class="lb-user"><span class="lb-av" style="background:#991b1b">PP</span><span class="lb-name">PaperHandsPete</span></div></td>
+              <td class="lb-val">$98,450</td>
+              <td class="lb-gain neg">−$22,380</td>
+              <td class="lb-pct neg">−18.5%</td>
+              <td class="lb-hold">DOGE</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lb-footnote">* Mock data · Connect your portfolio to compete when live.</p>
+    </div>
+  </div>
+
+  <!-- ── Shop Page ─────────────────────────────────────────────── -->
+  <div id="page-shop" class="page hidden">
+    <div class="page-inner">
+      <div class="page-hd">
+        <h1 class="page-title">Market Bubble Shop</h1>
+        <p class="page-sub">Rep the bubble. Limited drops coming soon.</p>
+      </div>
+      <div class="shop-grid">
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/hoodie.webp" alt="Classic Hoodie" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">Classic Hoodie</div>
+            <div class="shop-desc">Heavyweight fleece · Embroidered logo · Sizes S–3XL</div>
+            <div class="shop-footer">
+              <span class="shop-price">$65</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/shirt.png" alt="Logo Tee" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">Logo Tee</div>
+            <div class="shop-desc">100% ringspun cotton · Unisex fit · Black &amp; white</div>
+            <div class="shop-footer">
+              <span class="shop-price">$35</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/hat.png" alt="Snapback Cap" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">Snapback Cap</div>
+            <div class="shop-desc">One size fits most · Embroidered MB logo · Adjustable</div>
+            <div class="shop-footer">
+              <span class="shop-price">$45</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/white-hat.png" alt="White Hat" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">White Hat</div>
+            <div class="shop-desc">One size fits most · Embroidered MB logo · Adjustable</div>
+            <div class="shop-footer">
+              <span class="shop-price">$12</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/mug.png" alt="To The Moon Mug" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">To The Moon Mug</div>
+            <div class="shop-desc">11oz ceramic · Dishwasher safe · Printed both sides</div>
+            <div class="shop-footer">
+              <span class="shop-price">$22</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-img shop-img-photo">
+            <img src="/static/images/backpack.webp" alt="Backpack" draggable="false"/>
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">Market Bubble Backpack</div>
+            <div class="shop-desc">Water-resistant · Padded laptop pocket · Embroidered logo</div>
+            <div class="shop-footer">
+              <span class="shop-price">$38</span>
+              <button class="shop-btn">Coming Soon</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="error-toast"></div>
