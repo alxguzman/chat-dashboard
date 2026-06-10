@@ -102,7 +102,7 @@ function loadTwitchStream(channel) {
   streamLoading.style.display = 'none';
 }
 
-document.getElementById('fullscreen-btn').addEventListener('click', () => {
+document.getElementById('fullscreen-btn')?.addEventListener('click', () => {
   if (twitchPlayer.requestFullscreen) twitchPlayer.requestFullscreen();
 });
 
@@ -291,15 +291,30 @@ function connectWS() {
   ws.onopen = () => {
     wsDot.className = 'ws-dot connected';
     wsDot.title = 'Connected';
+    // Pre-warm the authenticated sender connection so it's ready before the first send
+    if (sessionId) ws.send(JSON.stringify({ type: 'prewarm', session_id: sessionId }));
   };
 
   ws.onmessage = ({ data }) => {
     try {
       const msg = JSON.parse(data);
       if      (msg.type === 'twitch_channels') {
-        // Use first Twitch channel for the stream embed
         if (msg.channels && msg.channels.length > 0) {
           loadTwitchStream(msg.channels[0]);
+        }
+        // Pre-populate the channel selector so the user can send before any messages arrive
+        (msg.channels || []).forEach(ch => {
+          if (!twitchChannels.has(ch)) {
+            twitchChannels.add(ch);
+            const opt = document.createElement('option');
+            opt.value = ch;
+            opt.textContent = '#' + ch;
+            channelSelect.appendChild(opt);
+          }
+        });
+        if (!channelSelect.value && msg.channels && msg.channels.length > 0) {
+          channelSelect.value = msg.channels[0];
+          channelSelect.disabled = !(twitchUser && sessionId);
         }
       }
       else if (msg.type === 'kick_channel')  { /* kick channel noted, not used for embed */ }
@@ -349,8 +364,21 @@ function renderBadges(badges) {
   }).join('');
 }
 
+// Tracks self-sent messages so the Twitch IRC echo can be suppressed
+const _selfSentEchoes = new Map(); // key -> clearTimeout id
+
 // ── Chat messages ─────────────────────────────────────────────
 function addChatMsg({ platform, channel, username, text, has_emotes, color, badges, self_sent }) {
+  // Suppress Twitch IRC echo of messages we already rendered as self-sent
+  if (platform === 'twitch' && !self_sent) {
+    const key = `${(username || '').toLowerCase()}|${text}`;
+    if (_selfSentEchoes.has(key)) {
+      clearTimeout(_selfSentEchoes.get(key));
+      _selfSentEchoes.delete(key);
+      return;
+    }
+  }
+
   if (platform === 'twitch' && channel && !twitchChannels.has(channel)) {
     twitchChannels.add(channel);
     const opt = document.createElement('option');
@@ -385,6 +413,13 @@ function addChatMsg({ platform, channel, username, text, has_emotes, color, badg
 
   // CHANGED: tally $SYMBOL mentions and update ticker glow live
   countChatTickers(text);
+
+  // Register the key so the incoming IRC echo can be dropped
+  if (self_sent) {
+    const key = `${(username || '').toLowerCase()}|${text}`;
+    const tid = setTimeout(() => _selfSentEchoes.delete(key), 8000);
+    _selfSentEchoes.set(key, tid);
+  }
 
   chatFeed.prepend(li);
   while (chatFeed.children.length > MAX_CHAT_MSGS) chatFeed.removeChild(chatFeed.lastChild);
@@ -473,6 +508,10 @@ window.addEventListener('message', (e) => {
     localStorage.setItem('twitch_user', JSON.stringify(twitchUser));
     updateAuthUI();
     showToast(`✓ Signed in as ${twitchUser.username}`, 'success');
+    // Pre-warm IRC sender so first chat send doesn't need to wait for connection
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'prewarm', session_id: sessionId }));
+    }
   }
   if (e.data?.type === 'twitch_auth_error') {
     showToast('Twitch login failed: ' + e.data.error, 'error');
@@ -491,7 +530,8 @@ logoutBtn.addEventListener('click', () => {
 function sendMessage() {
   const text    = chatInput.value.trim();
   const channel = channelSelect.value;
-  if (!text || !channel || !sessionId) return;
+  if (!text || !sessionId) return;
+  if (!channel) { showToast('No channel selected — wait for chat to load', 'error'); return; }
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     showToast('Not connected — please wait', 'error');
     return;
@@ -630,6 +670,25 @@ function setActiveRightSnap(btn) {
   btn.classList.add('active');
 }
 
+// ── Stream freeze helpers ─────────────────────────────────────
+// Locks the Twitch iframe to its current pixel size during drag so the player
+// doesn't detect a resize and pause. Restored to 100%/inset:0 on drag end.
+function freezePlayer() {
+    const rect = twitchPlayer.getBoundingClientRect();
+    if (!rect.width || !rect.height) return; // player not visible yet
+    // Pin width/height as explicit px — inset:0 stays active so the element
+    // remains positioned correctly; only the size stops responding to container
+    // resizes. The Twitch player sees no resize events until drag ends.
+    twitchPlayer.style.width  = rect.width  + 'px';
+    twitchPlayer.style.height = rect.height + 'px';
+}
+
+function unfreezePlayer() {
+    // Clear the pinned size — CSS width:100%/height:100% from inset:0 takes back over
+    twitchPlayer.style.width  = '';
+    twitchPlayer.style.height = '';
+}
+
 // ── Right divider drag ────────────────────────────────────────
 let isDragging     = false;
 let dragStartX     = 0;
@@ -643,6 +702,7 @@ divider.addEventListener('mousedown', e => {
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
   twitchPlayer.style.pointerEvents = 'none';
+  freezePlayer();
   e.preventDefault();
 });
 
@@ -664,6 +724,7 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     twitchPlayer.style.pointerEvents = '';
+    unfreezePlayer();
   }
   if (isLeftDragging) {
     isLeftDragging = false;
@@ -671,6 +732,7 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     twitchPlayer.style.pointerEvents = '';
+    unfreezePlayer();
   }
 });
 
@@ -679,6 +741,7 @@ divider.addEventListener('touchstart', e => {
   dragStartX     = e.touches[0].clientX;
   dragStartRight = chatPanel.offsetWidth;
   twitchPlayer.style.pointerEvents = 'none';
+  freezePlayer();
   e.preventDefault();
 }, { passive: false });
 
@@ -695,6 +758,7 @@ document.addEventListener('touchend', () => {
   isDragging     = false;
   isLeftDragging = false;
   twitchPlayer.style.pointerEvents = '';
+  unfreezePlayer();
 });
 
 divider.addEventListener('dblclick', () => {
@@ -716,6 +780,7 @@ leftDivider.addEventListener('mousedown', e => {
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
   twitchPlayer.style.pointerEvents = 'none';
+  freezePlayer();
   e.preventDefault();
 });
 
@@ -724,6 +789,7 @@ leftDivider.addEventListener('touchstart', e => {
   leftDragStartX    = e.touches[0].clientX;
   leftDragStartLeft = leftW;
   twitchPlayer.style.pointerEvents = 'none';
+  freezePlayer();
   e.preventDefault();
 }, { passive: false });
 

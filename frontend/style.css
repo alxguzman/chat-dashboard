@@ -25,8 +25,7 @@
 
   --header-h:     52px;
   --ticker-h:     44px;
-  --controls-h:   44px;
-  --meta-h:       58px;
+  --meta-h:       68px;
   --left-w:       280px;
   --right-w:      300px;
 
@@ -747,36 +746,6 @@ html.light        .icon-moon { display: none; }
   text-transform: uppercase;
 }
 
-/* Controls bar */
-#stream-controls {
-  height: var(--controls-h);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.controls-left, .controls-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.controls-mid {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text2);
-}
-
 #viewer-count {
   display: flex;
   align-items: center;
@@ -831,14 +800,23 @@ html.light        .icon-moon { display: none; }
   letter-spacing: 0.08em;
 }
 
-/* Stream meta */
+/* Stream meta (combined footer) */
 #stream-meta {
   height: var(--meta-h);
   background: var(--surface);
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 14px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.stream-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
   flex-shrink: 0;
 }
 
@@ -1703,7 +1681,6 @@ html.light #ticker-bar {
 
 /* Stream panel: keep video area dark, update control bars via vars */
 html.light #stream-panel    { background: #5a5750; }
-html.light #stream-controls { background: var(--surface); }
 html.light #stream-meta     { background: var(--surface); }
 html.light #stream-loading  { background: var(--surface2); }
 html.light .loading-logo    { color: rgba(0,0,0,0.15); }

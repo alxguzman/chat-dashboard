@@ -104,7 +104,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg = json.loads(raw)
             except Exception:
                 continue
-            if msg.get("type") == "send_chat":
+            if msg.get("type") == "prewarm":
+                session_id = msg.get("session_id", "")
+                session    = get_session(session_id)
+                if session:
+                    sender = await get_or_create_sender(session_id, session["username"], session["access_token"])
+                    # Pre-join channels in background so first send needs no JOIN delay
+                    asyncio.create_task(sender.pre_join(_twitch_channels))
+            elif msg.get("type") == "send_chat":
                 session_id = msg.get("session_id", "")
                 channel    = msg.get("channel", "")
                 text       = msg.get("text", "").strip()
@@ -117,12 +124,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 sender = await get_or_create_sender(session_id, session["username"], session["access_token"])
                 ok = await sender.send(channel, text)
                 if ok:
-                    await broadcast({
-                        "platform": "twitch", "channel": channel,
-                        "username": session["username"], "text": text,
-                        "has_emotes": False, "color": "#FFD700",
-                        "badges": [], "self_sent": True,
-                    })
+                    # Send only to the originating client so Twitch IRC echo (via twitch.py)
+                    # doesn't create a second copy for the sender
+                    await websocket.send_text(json.dumps({
+                        "platform":   "twitch",
+                        "channel":    channel,
+                        "username":   session["username"],
+                        "text":       text,
+                        "has_emotes": False,
+                        "color":      "#FFD700",
+                        "badges":     [],
+                        "self_sent":  True,
+                    }))
                 else:
                     await websocket.send_text(json.dumps({"type": "chat_error", "error": "Send failed."}))
             elif msg.get("type") == "logout":

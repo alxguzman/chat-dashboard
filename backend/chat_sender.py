@@ -57,13 +57,32 @@ class TwitchSender:
 
             await asyncio.sleep(5)
 
+    async def pre_join(self, channels: list[str]):
+        """Pre-join channels after connection is ready. Called during prewarm so the
+        first send doesn't stall on the JOIN round-trip."""
+        try:
+            await asyncio.wait_for(self._ready.wait(), timeout=10.0)
+        except asyncio.TimeoutError:
+            return
+        if not self._ws:
+            return
+        for ch in channels:
+            ch = ch.lower()
+            if ch not in self._joined:
+                try:
+                    await self._ws.send(f"JOIN #{ch}")
+                    self._joined.add(ch)
+                    await asyncio.sleep(0.1)
+                except Exception:
+                    pass
+
     async def send(self, channel: str, text: str) -> bool:
         """Join channel if needed, then send message. Returns True on success."""
         channel = channel.lower()
 
         try:
-            # Wait up to 5s for connection to be ready
-            await asyncio.wait_for(self._ready.wait(), timeout=5.0)
+            # Wait up to 10s for connection to be ready
+            await asyncio.wait_for(self._ready.wait(), timeout=10.0)
         except asyncio.TimeoutError:
             print(f"[Sender] Timed out waiting for IRC ready state")
             return False
