@@ -28,16 +28,16 @@ const FEAR_WORDS = new Set([
   'dead','dying','bust','loss','losses','losing','weak','weakness',
   'fear','scary','scared','pain','broke','broken','doomed','lower',
   'lows','selloff','sold','trapped','bubble','overvalued','liquidate',
-  'liquidation','stop','overbought','resist','resistance','rejected','rejection',
+  'liquidation','stop','overbought','resist','resistance','rejected','rejection','rip',
 ]);
 const GREED_WORDS = new Set([
   'up','moon','mooning','pump','pumping','good','green','bull','bullish',
-  'long','longing','buy','buying','btd','ath','rip','ripping','fly','flying',
+  'long','longing','buy','buying','btd','ath','ripping','fly','flying',
   'rally','rallying','run','breakout','bounce','bouncing','recovery','recovering',
   'strong','strength','hodl','hold','holding','gains','profit','winning',
   'rise','rising','higher','parabolic','send','sending','lfg','fire','hot',
   'great','amazing','explosive','surge','surging','print','printing',
-  'wagmi','based','chad','banger','go','lets','easy','undervalued',
+  'wagmi','based','chad','banger','lets','easy','undervalued',
   'support','oversold','accumulate','accumulating','loaded',
 ]);
 

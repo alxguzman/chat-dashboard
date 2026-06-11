@@ -953,10 +953,16 @@ html.light        .icon-moon { display: none; }
 }
 
 #viewer-count {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 5px;
   color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .ctrl-btn {
@@ -1016,6 +1022,7 @@ html.light        .icon-moon { display: none; }
   padding: 0 14px;
   gap: 10px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .stream-meta-right {
